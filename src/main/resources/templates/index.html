@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>ShopSmart</title>
+</head>
+
+<body>
+
+    <h2>ShopSmart Products</h2>
+
+    <form method="post" action="/ui/products">
+        <input name="name" placeholder="Product Name" required />
+        <input name="price" placeholder="Price" required />
+        <button type="submit">Add</button>
+    </form>
+
+    <hr />
+
+    <h3>Product List</h3>
+
+    <ul>
+        <li th:each="p : ${products}">
+            <span th:text="${p.name}"></span> -
+            <span th:text="${p.price}"></span>
+        </li>
+    </ul>
+
+</body>
+
+</html>
