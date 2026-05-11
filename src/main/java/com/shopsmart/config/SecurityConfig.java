@@ -4,7 +4,6 @@ import com.shopsmart.service.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,25 +24,14 @@ public class SecurityConfig {
     }
 
     @Bean
-    public DaoAuthenticationProvider authProvider() {
-        DaoAuthenticationProvider p = new DaoAuthenticationProvider();
-        p.setUserDetailsService(userDetailsService);
-        p.setPasswordEncoder(passwordEncoder());
-        return p;
-    }
-
-    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .authenticationProvider(authProvider())
+            .userDetailsService(userDetailsService)
             .csrf(csrf -> csrf.disable())
             .headers(h -> h.frameOptions(f -> f.disable()))
             .authorizeHttpRequests(auth -> auth
-                // public pages
-                .requestMatchers("/login", "/register", "/css/**", "/style.css", "/h2-console/**").permitAll()
-                // read-only API — any authenticated user
+                .requestMatchers("/login", "/register", "/style.css", "/h2-console/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/products/**", "/").authenticated()
-                // write API — ADMIN only
                 .requestMatchers(HttpMethod.POST,   "/products/**", "/ui/products/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/products/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/products/**").hasRole("ADMIN")
