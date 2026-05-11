@@ -1,0 +1,2 @@
+-- V2: default accounts are seeded programmatically by DataInitializer.java
+-- using BCryptPasswordEncoder at startup, so no hardcoded hashes needed here.

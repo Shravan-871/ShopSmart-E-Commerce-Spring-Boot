@@ -1,31 +1,421 @@
 <!DOCTYPE html>
-<html>
-
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>ShopSmart</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
 </head>
-
 <body>
 
-    <h2>ShopSmart Products</h2>
-
-    <form method="post" action="/ui/products">
-        <input name="name" placeholder="Product Name" required />
-        <input name="price" placeholder="Price" required />
-        <button type="submit">Add</button>
+<!-- Navbar -->
+<nav class="navbar">
+    <a href="/" class="brand">🛒 ShopSmart</a>
+    <form method="get" action="/" class="nav-search">
+        <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input name="search" th:value="${search}" placeholder="Search products..."/>
+        </div>
+        <select name="category" class="filter-select" onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            <option th:each="cat : ${categories}"
+                    th:value="${cat}"
+                    th:text="${cat}"
+                    th:selected="${cat == category}"></option>
+        </select>
+        <button type="submit" class="nav-btn">Filter</button>
+        <a href="/" class="nav-btn">Clear</a>
     </form>
+    <div class="nav-links">
+        <!-- Admin-only actions -->
+        <span sec:authorize="hasRole('ADMIN')">
+            <a href="/h2-console" target="_blank" class="nav-btn">🗄️ DB</a>
+            <button class="nav-btn nav-btn-success" onclick="loadRandom()">🎲 Random</button>
+            <button class="nav-btn nav-btn-danger" onclick="deleteAll()">🗑️ Delete All</button>
+        </span>
+        <!-- User info + logout -->
+        <span class="nav-user">
+            <span class="nav-username" sec:authentication="name">user</span>
+            <span class="role-badge" sec:authorize="hasRole('ADMIN')">ADMIN</span>
+            <span class="role-badge role-user" sec:authorize="hasRole('USER')">USER</span>
+        </span>
+        <form method="post" action="/logout" style="display:inline">
+            <button type="submit" class="nav-btn nav-btn-danger">Logout</button>
+        </form>
+    </div>
+</nav>
 
-    <hr />
+<div class="container">
 
-    <h3>Product List</h3>
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-icon purple">📦</div>
+            <div class="stat-info">
+                <div class="label">Total Products</div>
+                <div class="value" th:text="${stats.totalProducts}">0</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">💰</div>
+            <div class="stat-info">
+                <div class="label">Avg Price</div>
+                <div class="value" th:text="'₹' + ${#numbers.formatDecimal(stats.averagePrice, 1, 0)}">₹0</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon orange">🏪</div>
+            <div class="stat-info">
+                <div class="label">Total Stock</div>
+                <div class="value" th:text="${stats.totalStock}">0</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon red">⚠️</div>
+            <div class="stat-info">
+                <div class="label">Low Stock</div>
+                <div class="value" th:text="${lowStockCount}">0</div>
+            </div>
+        </div>
+    </div>
 
-    <ul>
-        <li th:each="p : ${products}">
-            <span th:text="${p.name}"></span> -
-            <span th:text="${p.price}"></span>
-        </li>
-    </ul>
+    <!-- Add Product Form — ADMIN only -->
+    <div class="form-card" sec:authorize="hasRole('ADMIN')">
+        <h3>➕ Add New Product</h3>
+        <form method="post" action="/ui/products" id="addForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Product Name *</label>
+                    <input name="name" placeholder="e.g. Laptop" pattern="^[A-Za-z ]+$"
+                           title="Only alphabets allowed" required/>
+                </div>
+                <div class="form-group">
+                    <label>Price (₹) *</label>
+                    <input name="price" type="number" min="1" step="0.01" placeholder="e.g. 49999" required/>
+                </div>
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select name="category" required>
+                        <option value="">Select category</option>
+                        <option th:each="cat : ${categories}" th:value="${cat}" th:text="${cat}"></option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Stock Qty</label>
+                    <input name="stock" type="number" min="0" placeholder="e.g. 50" value="0"/>
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input name="description" placeholder="Short description"/>
+                </div>
+                <div class="form-group" style="justify-content:flex-end;">
+                    <button type="submit" class="btn btn-primary">Add Product</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Toolbar removed, moved to navbar -->
+
+    <!-- Product Grid -->
+    <div class="products-grid" id="productsGrid">
+        <div th:if="${#lists.isEmpty(products)}" class="empty-state" style="grid-column:1/-1">
+            <div class="icon">📭</div>
+            <p>No products found. Add one above!</p>
+        </div>
+
+        <div th:each="p : ${products}" class="product-card"
+             th:data-id="${p.id}"
+             th:data-name="${p.name}"
+             th:data-price="${p.price}"
+             th:data-category="${p.category}"
+             th:data-stock="${p.stock}"
+             th:data-desc="${p.description != null ? p.description : ''}">
+
+            <!-- Image area (clickable for detail) -->
+            <div class="product-card-image view-btn">
+                <span class="category-badge" th:text="${p.category}"></span>
+                <span class="product-id" th:text="'#' + ${p.id}"></span>
+            </div>
+
+            <!-- Body (clickable for detail) -->
+            <div class="product-card-body view-btn">
+                <div class="product-name" th:text="${p.name}"></div>
+                <div class="product-price" th:text="'₹' + ${#numbers.formatDecimal(p.price, 1, 2)}"></div>
+                <div class="product-desc" th:text="${p.description != null ? p.description : 'No description'}"></div>
+            </div>
+
+            <!-- Footer -->
+            <div class="product-card-footer">
+                <div>
+                    <span th:if="${p.stock > 10}"  class="stock-badge stock-ok">• In Stock (<span th:text="${p.stock}"></span>)</span>
+                    <span th:if="${p.stock > 0 and p.stock <= 10}" class="stock-badge stock-low">• Low (<span th:text="${p.stock}"></span>)</span>
+                    <span th:if="${p.stock == 0}"  class="stock-badge stock-zero">• Out of Stock</span>
+                </div>
+                <div class="actions" sec:authorize="hasRole('ADMIN')">
+                    <button class="btn btn-outline btn-sm edit-btn">✏️</button>
+                    <form th:action="'/ui/products/delete/' + ${p.id}" method="post" style="display:inline"
+                          onsubmit="return confirm('Delete this product?')">
+                        <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination" th:if="${totalPages != null and totalPages > 1}">
+        <a th:href="'/?page=0&size=20'" th:classappend="${currentPage == 0} ? 'disabled'">«</a>
+        <a th:href="'/?page=' + (${currentPage} - 1) + '&size=20'"
+           th:classappend="${currentPage == 0} ? 'disabled'">‹</a>
+
+        <th:block th:each="i : ${#numbers.sequence(0, totalPages - 1)}">
+            <a th:href="'/?page=' + ${i} + '&size=20'"
+               th:text="${i + 1}"
+               th:classappend="${i == currentPage} ? 'active'"></a>
+        </th:block>
+
+        <a th:href="'/?page=' + (${currentPage} + 1) + '&size=20'"
+           th:classappend="${currentPage == totalPages - 1} ? 'disabled'">›</a>
+        <a th:href="'/?page=' + (${totalPages} - 1) + '&size=20'"
+           th:classappend="${currentPage == totalPages - 1} ? 'disabled'">»</a>
+    </div>
+
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay detail-modal" id="detailModal">
+    <div class="modal">
+        <div class="detail-header">
+            <div class="detail-image" id="detailImage"></div>
+            <div class="detail-info">
+                <div class="product-id" id="detailId"></div>
+                <div class="product-name" id="detailName"></div>
+                <div class="product-price" id="detailPrice"></div>
+            </div>
+        </div>
+        <div class="detail-body">
+            <div class="detail-row">
+                <span class="detail-label">Category</span>
+                <span class="detail-value" id="detailCategory"></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Stock</span>
+                <span class="detail-value" id="detailStock"></span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Description</span>
+                <span class="detail-value" id="detailDesc"></span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeDetail()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <h3>✏️ Edit Product</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Name *</label>
+                <input id="editName" placeholder="Product name" pattern="^[A-Za-z ]+$"/>
+            </div>
+            <div class="form-group">
+                <label>Price (₹) *</label>
+                <input id="editPrice" type="number" min="1" step="0.01"/>
+            </div>
+            <div class="form-group">
+                <label>Category *</label>
+                <select id="editCategory">
+                    <option th:each="cat : ${categories}" th:value="${cat}" th:text="${cat}"></option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Stock</label>
+                <input id="editStock" type="number" min="0"/>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+                <label>Description</label>
+                <input id="editDesc" placeholder="Description"/>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// Category SVG icons (inline, no external files needed)
+const categoryIcons = {
+  'Electronics': `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="18" width="60" height="38" rx="4" fill="white" fill-opacity="0.3"/><rect x="14" y="22" width="52" height="30" rx="2" fill="white" fill-opacity="0.5"/><rect x="28" y="56" width="24" height="4" rx="2" fill="white" fill-opacity="0.4"/><rect x="22" y="60" width="36" height="3" rx="1.5" fill="white" fill-opacity="0.3"/></svg>`,
+  'Computers':  `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="14" width="64" height="42" rx="4" fill="white" fill-opacity="0.3"/><rect x="12" y="18" width="56" height="34" rx="2" fill="white" fill-opacity="0.5"/><rect x="24" y="56" width="32" height="4" rx="2" fill="white" fill-opacity="0.4"/><rect x="18" y="60" width="44" height="3" rx="1.5" fill="white" fill-opacity="0.3"/></svg>`,
+  'Audio':      `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="22" fill="white" fill-opacity="0.3"/><circle cx="40" cy="40" r="14" fill="white" fill-opacity="0.4"/><circle cx="40" cy="40" r="6" fill="white" fill-opacity="0.6"/><rect x="38" y="10" width="4" height="12" rx="2" fill="white" fill-opacity="0.5"/><rect x="38" y="58" width="4" height="12" rx="2" fill="white" fill-opacity="0.5"/></svg>`,
+  'Accessories':`<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="24" stroke="white" stroke-width="5" fill="none" stroke-opacity="0.5"/><circle cx="40" cy="40" r="14" stroke="white" stroke-width="4" fill="none" stroke-opacity="0.4"/><circle cx="40" cy="40" r="4" fill="white" fill-opacity="0.7"/><line x1="40" y1="16" x2="40" y2="26" stroke="white" stroke-width="3" stroke-opacity="0.6"/></svg>`,
+  'Clothing':   `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28 14 L20 26 L30 30 L30 66 L50 66 L50 30 L60 26 L52 14 L44 20 Q40 24 36 20 Z" fill="white" fill-opacity="0.4"/></svg>`,
+  'Food':       `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="38" r="22" fill="white" fill-opacity="0.3"/><path d="M28 38 Q34 28 40 38 Q46 48 52 38" stroke="white" stroke-width="3" fill="none" stroke-opacity="0.7"/><rect x="36" y="14" width="8" height="10" rx="4" fill="white" fill-opacity="0.5"/></svg>`,
+  'Sports':     `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="22" fill="white" fill-opacity="0.3"/><path d="M22 30 Q40 20 58 30" stroke="white" stroke-width="3" fill="none" stroke-opacity="0.6"/><path d="M18 42 Q40 52 62 42" stroke="white" stroke-width="3" fill="none" stroke-opacity="0.6"/><line x1="40" y1="18" x2="40" y2="62" stroke="white" stroke-width="2" stroke-opacity="0.4"/></svg>`,
+  'Books':      `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="14" width="30" height="52" rx="3" fill="white" fill-opacity="0.4"/><rect x="20" y="14" width="30" height="52" rx="3" fill="white" fill-opacity="0.3"/><rect x="24" y="14" width="30" height="52" rx="3" fill="white" fill-opacity="0.5"/><line x1="30" y1="28" x2="48" y2="28" stroke="white" stroke-width="2" stroke-opacity="0.6"/><line x1="30" y1="36" x2="48" y2="36" stroke="white" stroke-width="2" stroke-opacity="0.6"/><line x1="30" y1="44" x2="42" y2="44" stroke="white" stroke-width="2" stroke-opacity="0.6"/></svg>`,
+};
+const defaultIcon = `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="16" width="48" height="48" rx="8" fill="white" fill-opacity="0.4"/><circle cx="40" cy="36" r="10" fill="white" fill-opacity="0.5"/><path d="M20 64 Q40 48 60 64" fill="white" fill-opacity="0.3"/></svg>`;
+
+// Wire view (detail) buttons + inject category SVG into card image
+document.querySelectorAll('.product-card').forEach(card => {
+    // inject SVG into image area
+    const img = card.querySelector('.product-card-image');
+    if (img) {
+        const svg = categoryIcons[card.dataset.category] || defaultIcon;
+        // insert before first child so badges stay on top
+        const div = document.createElement('div');
+        div.innerHTML = svg;
+        img.insertBefore(div.firstChild, img.firstChild);
+    }
+});
+
+document.querySelectorAll('.view-btn').forEach(el => {
+    el.addEventListener('click', function() {
+        const card = this.closest('.product-card');
+        openDetail(card.dataset);
+    });
+});
+
+function openDetail(d) {
+    document.getElementById('detailId').textContent = '#' + d.id;
+    document.getElementById('detailName').textContent = d.name;
+    document.getElementById('detailPrice').textContent = '\u20b9' + parseFloat(d.price).toLocaleString('en-IN', {minimumFractionDigits: 2});
+    document.getElementById('detailCategory').textContent = d.category;
+    const stock = parseInt(d.stock);
+    document.getElementById('detailStock').textContent =
+        stock === 0 ? 'Out of Stock' : stock <= 10 ? stock + ' units (Low Stock ⚠️)' : stock + ' units';
+    document.getElementById('detailDesc').textContent = d.desc || 'No description';
+    const svg = categoryIcons[d.category] || defaultIcon;
+    document.getElementById('detailImage').innerHTML = svg;
+    document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetail() {
+    document.getElementById('detailModal').classList.remove('open');
+}
+
+// Wire edit buttons via data-* attributes
+document.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const card = this.closest('.product-card');
+        openEdit(
+            card.dataset.id,
+            card.dataset.name,
+            card.dataset.price,
+            card.dataset.category,
+            card.dataset.stock,
+            card.dataset.desc
+        );
+    });
+});
+
+let editingId = null;
+
+function openEdit(id, name, price, category, stock, desc) {
+    editingId = id;
+    document.getElementById('editName').value = name;
+    document.getElementById('editPrice').value = price;
+    document.getElementById('editCategory').value = category;
+    document.getElementById('editStock').value = stock;
+    document.getElementById('editDesc').value = desc;
+    document.getElementById('editModal').classList.add('open');
+}
+
+function closeEdit() {
+    document.getElementById('editModal').classList.remove('open');
+    editingId = null;
+}
+
+function saveEdit() {
+    const name = document.getElementById('editName').value;
+    const price = parseFloat(document.getElementById('editPrice').value);
+    const category = document.getElementById('editCategory').value;
+    const stock = parseInt(document.getElementById('editStock').value);
+    const description = document.getElementById('editDesc').value;
+
+    if (!name.match(/^[A-Za-z ]+$/)) {
+        showToast('Name must contain only alphabets', 'error');
+        return;
+    }
+    if (price <= 0) {
+        showToast('Price must be greater than 0', 'error');
+        return;
+    }
+
+    fetch('/products/' + editingId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, price, category, stock, description })
+    })
+    .then(r => {
+        if (r.ok) {
+            showToast('Product updated successfully!', 'success');
+            closeEdit();
+            setTimeout(() => location.reload(), 800);
+        } else {
+            r.json().then(e => showToast(JSON.stringify(e), 'error'));
+        }
+    })
+    .catch(() => showToast('Update failed', 'error'));
+}
+
+function deleteAll() {
+    if (!confirm('Delete ALL products? This cannot be undone.')) return;
+    fetch('/products/all', { method: 'DELETE' })
+        .then(r => {
+            if (r.ok) {
+                showToast('All products deleted!', 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast('Failed to delete all', 'error');
+            }
+        })
+        .catch(() => showToast('Failed to delete all', 'error'));
+}
+
+function loadRandom() {
+    const input = prompt('How many random products to generate? (1 - 100)', '10');
+    if (input === null) return;
+    const count = parseInt(input);
+    if (isNaN(count) || count < 1 || count > 100) {
+        showToast('Enter a number between 1 and 100', 'error');
+        return;
+    }
+    fetch('/products/random?count=' + count)
+        .then(r => r.json())
+        .then(data => {
+            showToast('Added ' + data.length + ' random products!', 'success');
+            setTimeout(() => location.reload(), 800);
+        })
+        .catch(() => showToast('Failed to generate products', 'error'));
+}
+
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    setTimeout(() => t.className = '', 3000);
+}
+
+// Close modals on overlay click
+document.getElementById('editModal').addEventListener('click', function(e) {
+    if (e.target === this) closeEdit();
+});
+document.getElementById('detailModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetail();
+});
+</script>
 
 </body>
-
 </html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>ShopSmart — Register</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+    <style>
+        .auth-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #6c63ff 0%, #574fd6 100%);
+        }
+        .auth-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .auth-logo { text-align: center; font-size: 2rem; margin-bottom: 0.25rem; }
+        .auth-title { text-align: center; font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem; color: #2d3436; }
+        .auth-sub { text-align: center; font-size: 0.85rem; color: #636e72; margin-bottom: 1.75rem; }
+        .auth-card .form-group { margin-bottom: 1rem; }
+        .auth-card .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: #636e72; margin-bottom: 0.3rem; }
+        .auth-card .form-group input {
+            width: 100%; padding: 0.65rem 0.9rem;
+            border: 1px solid #dfe6e9; border-radius: 8px;
+            font-size: 0.9rem; outline: none; transition: border-color 0.2s;
+        }
+        .auth-card .form-group input:focus { border-color: #6c63ff; }
+        .auth-submit {
+            width: 100%; padding: 0.75rem;
+            background: #6c63ff; color: white;
+            border: none; border-radius: 8px;
+            font-size: 1rem; font-weight: 700;
+            cursor: pointer; transition: background 0.2s;
+            margin-top: 0.5rem;
+        }
+        .auth-submit:hover { background: #574fd6; }
+        .auth-alert {
+            padding: 0.65rem 1rem; border-radius: 8px;
+            font-size: 0.85rem; margin-bottom: 1rem;
+        }
+        .auth-alert.error { background: rgba(231,76,60,0.1); color: #c0392b; border-left: 3px solid #e74c3c; }
+        .auth-footer { text-align: center; margin-top: 1.25rem; font-size: 0.85rem; color: #636e72; }
+        .auth-footer a { color: #6c63ff; text-decoration: none; font-weight: 600; }
+        .hint { font-size: 0.75rem; color: #b2bec3; margin-top: 0.2rem; }
+    </style>
+</head>
+<body>
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-logo">🛒</div>
+        <div class="auth-title">Create Account</div>
+        <div class="auth-sub">Join ShopSmart as a USER</div>
+
+        <div th:if="${error}" class="auth-alert error" th:text="${error}"></div>
+
+        <form method="post" action="/register">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" placeholder="Choose a username" required autofocus/>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" placeholder="Min 6 characters" required/>
+                <div class="hint">At least 6 characters</div>
+            </div>
+            <div class="form-group">
+                <label>Confirm Password</label>
+                <input type="password" name="confirmPassword" placeholder="Repeat password" required/>
+            </div>
+            <button type="submit" class="auth-submit">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+            Already have an account? <a href="/login">Sign in</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>
