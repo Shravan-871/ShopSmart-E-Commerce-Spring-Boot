@@ -5,13 +5,13 @@
 - Java 17, Spring Boot 3.3.0
 - Spring Web MVC, Spring Data JPA, Spring Security
 - H2 in-memory database, Thymeleaf, Jakarta Validation
-- JUnit 5 + MockMvc (28 tests), Maven
+- JUnit 5 + MockMvc (49 tests), Maven
 
 ## How to Run
 
 ```cmd
 mvnw.cmd spring-boot:run       # start server at http://localhost:8080
-mvnw.cmd test                  # run all 28 tests
+mvnw.cmd test                  # run all 49 tests
 mvnw.cmd clean package         # build jar
 ```
 
@@ -119,7 +119,7 @@ To switch to PostgreSQL: set `spring.profiles.active=prod` and provide DB_URL, D
 
 ---
 
-## DONE - Tests (28/28 passing)
+## DONE - Tests (49/49 passing)
 
 | # | Test | What it verifies |
 |---|------|-----------------|
@@ -150,30 +150,69 @@ To switch to PostgreSQL: set `spring.profiles.active=prod` and provide DB_URL, D
 | 25 | `contextLoads` | Spring context boots cleanly |
 | 26 | `userCannotCreate` | USER role POST returns 403 Forbidden |
 | 27 | `userCannotDelete` | USER role DELETE returns 403 Forbidden |
-| 28 | `unauthenticatedRedirectsToLogin` | No auth returns 302 redirect to /login |
+| 28 | `getCartEmpty` | GET /cart creates empty cart on first access |
+| 29 | `addToCart` | POST /cart/add returns cart with item |
+| 30 | `addToCartIncrementsQuantity` | Adding same product increments quantity |
+| 31 | `addToCartProductNotFound` | POST /cart/add with bad productId returns 404 |
+| 32 | `removeFromCart` | DELETE /cart/remove/{itemId} removes item, cart empty |
+| 33 | `checkout` | POST /orders/checkout creates order, clears cart |
+| 34 | `checkoutEmptyCart` | Checkout with empty cart returns 400 |
+| 35 | `getMyOrders` | GET /orders returns user's orders |
+| 36 | `getOrderById` | GET /orders/{id} returns correct order |
+| 37 | `updateOrderStatus` | PUT /orders/{id}/status ADMIN updates to CONFIRMED |
+| 38 | `updateOrderStatusForbidden` | PUT /orders/{id}/status USER returns 403 |
+| 39 | `checkoutDeductsStock` | Checkout reduces product stock by ordered quantity |
+| 40 | `checkoutDeductsStockMultipleItems` | Multiple items in one order all deduct stock correctly |
+| 41 | `addToCartExceedsStock` | Adding qty > stock returns 400 with error |
+| 42 | `addToCartCumulativeExceedsStock` | Cumulative cart qty beyond stock returns 400 |
+| 43 | `updateCartItemQty` | PUT /cart/update/{itemId} updates quantity correctly |
+| 44 | `updateCartItemQtyExceedsStock` | Updating qty beyond stock returns 400 |
+| 45 | `cancelOrderRestoresStock` | Cancelling order restores product stock |
+| 46 | `cancelAlreadyCancelledOrderBlocked` | Re-cancelling blocked — stock not double-restored |
+| 47 | `cannotCancelShippedOrder` | SHIPPED order cancel returns 400 |
+| 48 | `invalidTransitionBlocked` | PENDING → DELIVERED returns 400 |
+| 49 | `contextLoads` (ShopsmartApplicationTests) | Spring context boots cleanly |
+
+---
+
+## DONE - Shopping Cart and Orders (Feature 3)
+
+| # | Item | Detail |
+|---|------|--------|
+| 1 | `Cart` entity | One cart per user, EAGER-loaded items |
+| 2 | `CartItem` entity | Product + quantity, linked to Cart |
+| 3 | `Order` entity | Username, status enum, total, EAGER-loaded items, `confirmedAt`, `shippedAt`, `stockRestored` flag |
+| 4 | `OrderItem` entity | Denormalized snapshot — productName, productPrice, productCategory, quantity |
+| 5 | Order status flow | PENDING → CONFIRMED (admin) → SHIPPED (auto 1 min) → DELIVERED (auto 1 min) |
+| 6 | Strict transition rules | Only valid transitions allowed — invalid returns 400 with error message |
+| 7 | Terminal state lock | SHIPPED / DELIVERED / CANCELLED orders cannot be changed — returns 400 |
+| 8 | Stock deducted at checkout | Product stock reduced immediately when order is placed |
+| 9 | Stock restored on cancel | CANCELLED restores stock — guarded by `stockRestored` flag, idempotent, no double-restore |
+| 10 | Duplicate cancel bug fixed | Cancelling an already-cancelled order returns 400, stock not touched again |
+| 11 | Cart stock enforcement | Cannot add more than available stock to cart — returns 400 with "Only N in stock" |
+| 12 | Cart qty update | `PUT /cart/update/{itemId}` — updates quantity, enforces stock max |
+| 13 | Cart qty input max | Cart page shows `max=stock` on qty input, stock count shown per item |
+| 14 | `OrderScheduler` | `@Scheduled` every 10s — auto-advances CONFIRMED→SHIPPED after **30s**, SHIPPED→DELIVERED after **60s** |
+| 15 | `@EnableScheduling` | Added to `ShopsmartApplication` |
+| 16 | `CartRepository` | findByUsername |
+| 17 | `OrderRepository` | findByUsernameOrderByCreatedAtDesc, findByStatus |
+| 18 | `CartController` | GET /cart, POST /cart/add, PUT /cart/update/{itemId}, DELETE /cart/remove/{itemId}, DELETE /cart/clear |
+| 19 | `OrderController` | POST /orders/checkout, GET /orders, GET /orders/{id}, PUT /orders/{id}/status (ADMIN), GET /orders/all (ADMIN) |
+| 20 | `V3__cart_order_schema.sql` | Flyway migration — cart, cart_item, orders, order_item tables |
+| 21 | `V4__order_lifecycle.sql` | Flyway migration — confirmed_at, shipped_at, stock_restored columns |
+| 22 | Cart UI | /cart-page — live JS fetch, qty update with max enforcement, item removal, clear, checkout |
+| 23 | Orders list UI | /my-orders — per-user order history, quick Confirm/Cancel buttons (PENDING only), locked for terminal states |
+| 24 | Order detail UI | /my-orders/{id} — progress tracker bar, cancelled banner, **live countdown timer** (30s to ship, 60s to deliver), auto-reloads on expiry, locked controls for terminal states |
+| 25 | Progress tracker bar | Visual step bar in order detail — steps highlight based on current status, cancelled shows red banner |
+| 26 | Navbar links | 🛒 Cart + 📋 My Orders on all pages |
+| 27 | Add to Cart button | 🛒 button on every product card, disabled when out of stock |
+| 28 | SecurityConfig | Cart/order endpoints authenticated; @EnableMethodSecurity for @PreAuthorize |
+| 29 | GlobalExceptionHandler | AuthorizationDeniedException → 403 |
+| 30 | Tests 28–48 | 21 new integration tests — cart CRUD, stock enforcement, checkout deduction, cancel restore, duplicate cancel blocked, transition rules, locked states |
 
 ---
 
 ## NOT DONE - Roadmap (Priority Order)
-
-### 3. Shopping Cart and Orders
-
-**Why:** Core e-commerce functionality - without this it is just a product catalog.
-
-- [ ] `Cart` entity - belongs to a user, has line items
-- [ ] `CartItem` entity - product + quantity
-- [ ] `Order` entity - snapshot of cart at checkout, with status enum
-- [ ] `OrderItem` entity - product name/price at time of order (denormalized)
-- [ ] Order status flow: PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
-- [ ] Cart UI - sidebar or dedicated page
-- [ ] Order history page per user
-- [ ] `POST /cart/add` - add item
-- [ ] `DELETE /cart/remove/{itemId}` - remove item
-- [ ] `GET /cart` - view cart
-- [ ] `POST /orders/checkout` - place order
-- [ ] `GET /orders` - list user orders
-- [ ] `GET /orders/{id}` - order detail
-- [ ] `PUT /orders/{id}/status` - admin updates status
 
 ### 4. Swagger / OpenAPI Docs
 
@@ -279,22 +318,33 @@ To switch to PostgreSQL: set `spring.profiles.active=prod` and provide DB_URL, D
 
 ```
 src/main/java/com/shopsmart/
-  ShopsmartApplication.java
+  ShopsmartApplication.java     - @EnableScheduling added
   config/
     DataInitializer.java        - Seeds admin/user accounts at startup via BCrypt
-    SecurityConfig.java         - Role-based auth, form login, BCrypt
+    OrderScheduler.java         - Auto-advances CONFIRMED→SHIPPED→DELIVERED every 30s
+    SecurityConfig.java         - Role-based auth, form login, BCrypt, @EnableMethodSecurity
   controller/
     AuthController.java         - GET/POST /login, /register
+    CartController.java         - REST API for cart (5 endpoints)
+    OrderController.java        - REST API for orders (5 endpoints), strict transition rules
     ProductController.java      - REST API (12 endpoints)
     UiController.java           - Thymeleaf UI routes
   exception/
-    GlobalExceptionHandler.java - 400/500 structured error responses
+    GlobalExceptionHandler.java - 400/403/500 structured error responses
   model/
+    Cart.java                   - JPA entity, one per user, EAGER items
+    CartItem.java               - JPA entity, product + quantity
+    Order.java                  - JPA entity, status enum, confirmedAt, shippedAt, stockRestored
+    OrderItem.java              - JPA entity, denormalized product snapshot
     Product.java                - JPA entity, 6 fields, validated
     ProductStats.java           - Stats DTO
     User.java                   - JPA entity, BCrypt password, role
   repository/
-    ProductRepository.java      - JPA + 6 custom queries
+    CartItemRepository.java     - JpaRepository
+    CartRepository.java         - findByUsername
+    OrderItemRepository.java    - JpaRepository
+    OrderRepository.java        - findByUsernameOrderByCreatedAtDesc, findByStatus
+    ProductRepository.java      - JPA + 7 custom queries (incl. findByName)
     UserRepository.java         - findByUsername, existsByUsername
   service/
     UserDetailsServiceImpl.java - Spring Security user loader
@@ -304,9 +354,14 @@ src/main/resources/
   db/migration/
     V1__init_schema.sql         - Creates product and app_user tables
     V2__seed_users.sql          - Placeholder (seeding done by DataInitializer)
+    V3__cart_order_schema.sql   - Creates cart, cart_item, orders, order_item tables
+    V4__order_lifecycle.sql     - Adds confirmed_at, shipped_at, stock_restored to orders
   templates/
-    index.html                  - Main UI (role-aware)
+    cart.html                   - Cart page (qty update with max, stock display, checkout)
+    index.html                  - Main UI (role-aware, Add to Cart button)
     login.html                  - Login page
+    order-detail.html           - Order detail with progress tracker bar, locked controls
+    orders.html                 - Order history, quick Confirm/Cancel for PENDING only
     register.html               - Registration page
   static/
     style.css                   - Custom CSS
@@ -316,7 +371,7 @@ src/main/resources/
 
 src/test/
   java/com/shopsmart/shopsmart/
-    ProductApiTests.java        - 27 MockMvc integration + security tests
+    ProductApiTests.java        - 48 MockMvc integration + security + cart/order tests
     ShopsmartApplicationTests.java - context load test
   resources/
     application.properties      - Test config (H2 + Flyway)
@@ -345,6 +400,16 @@ src/test/
 | GET | `/register` | Register page | 200 |
 | POST | `/register` | Create USER account | 302 |
 | POST | `/logout` | Logout | 302 |
+| GET | `/cart` | View cart (creates if missing) | 200 |
+| POST | `/cart/add?productId=&quantity=` | Add item to cart | 200, 404 |
+| PUT | `/cart/update/{itemId}?quantity=` | Update cart item quantity | 200, 400, 404 |
+| DELETE | `/cart/remove/{itemId}` | Remove item from cart | 200, 404 |
+| DELETE | `/cart/clear` | Clear entire cart | 200 |
+| POST | `/orders/checkout` | Place order from cart | 200, 400 |
+| GET | `/orders` | List my orders | 200 |
+| GET | `/orders/{id}` | Order detail | 200, 404 |
+| PUT | `/orders/{id}/status?status=` | Update order status (ADMIN) | 200, 404 |
+| GET | `/orders/all` | All orders (ADMIN) | 200 |
 
 ## Validation Rules
 

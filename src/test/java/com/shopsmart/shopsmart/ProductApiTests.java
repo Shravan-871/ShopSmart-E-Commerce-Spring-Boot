@@ -2,6 +2,8 @@ package com.shopsmart.shopsmart;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shopsmart.model.Product;
+import com.shopsmart.repository.CartRepository;
+import com.shopsmart.repository.OrderRepository;
 import com.shopsmart.repository.ProductRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,9 +27,15 @@ class ProductApiTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper mapper;
     @Autowired ProductRepository repo;
+    @Autowired CartRepository cartRepo;
+    @Autowired OrderRepository orderRepo;
 
     @BeforeEach
-    void clean() { repo.deleteAll(); }
+    void clean() {
+        orderRepo.deleteAll();
+        cartRepo.deleteAll();
+        repo.deleteAll();
+    }
 
     private Product seed(String name, double price, String cat, int stock, String desc) {
         return repo.save(new Product(name, price, cat, stock, desc));
@@ -315,5 +323,287 @@ class ProductApiTests {
     @Test @Order(27)
     void unauthenticatedRedirectsToLogin() throws Exception {
         mvc.perform(get("/products")).andExpect(status().is3xxRedirection());
+    }
+
+    // ── 28. GET /cart — empty cart created on first access ───
+    @Test @Order(28) @WithMockUser(username = "testuser")
+    void getCartEmpty() throws Exception {
+        mvc.perform(get("/cart"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("testuser"))
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items", hasSize(0)));
+    }
+
+    // ── 29. POST /cart/add — adds item to cart ────────────────
+    @Test @Order(29) @WithMockUser(username = "testuser")
+    void addToCart() throws Exception {
+        Product p = seed("Laptop", 75000, "Electronics", 10, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                .andExpect(jsonPath("$.items[0].product.name").value("Laptop"));
+    }
+
+    // ── 30. POST /cart/add — adds to existing quantity ────────
+    @Test @Order(30) @WithMockUser(username = "testuser")
+    void addToCartIncrementsQuantity() throws Exception {
+        Product p = seed("Phone", 45000, "Electronics", 20, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"));
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].quantity").value(4));
+    }
+
+    // ── 31. POST /cart/add — product not found → 404 ─────────
+    @Test @Order(31) @WithMockUser(username = "testuser")
+    void addToCartProductNotFound() throws Exception {
+        mvc.perform(post("/cart/add?productId=99999"))
+                .andExpect(status().isNotFound());
+    }
+
+    // ── 32. DELETE /cart/remove/{itemId} — removes item ──────
+    @Test @Order(32) @WithMockUser(username = "testuser")
+    void removeFromCart() throws Exception {
+        Product p = seed("Tablet", 30000, "Electronics", 5, "desc");
+        String cartJson = mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"))
+                .andReturn().getResponse().getContentAsString();
+        Long itemId = mapper.readTree(cartJson).get("items").get(0).get("id").asLong();
+        mvc.perform(delete("/cart/remove/" + itemId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Item removed"));
+        mvc.perform(get("/cart"))
+                .andExpect(jsonPath("$.items", hasSize(0)));
+    }
+
+    // ── 33. POST /orders/checkout — places order, clears cart ─
+    @Test @Order(33) @WithMockUser(username = "testuser")
+    void checkout() throws Exception {
+        Product p = seed("Camera", 20000, "Electronics", 10, "DSLR");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=2"));
+        mvc.perform(post("/orders/checkout"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.total").value(40000.0))
+                .andExpect(jsonPath("$.items", hasSize(1)))
+                .andExpect(jsonPath("$.items[0].productName").value("Camera"))
+                .andExpect(jsonPath("$.items[0].quantity").value(2));
+        mvc.perform(get("/cart"))
+                .andExpect(jsonPath("$.items", hasSize(0)));
+    }
+
+    // ── 34. POST /orders/checkout — empty cart → 400 ─────────
+    @Test @Order(34) @WithMockUser(username = "testuser")
+    void checkoutEmptyCart() throws Exception {
+        mvc.perform(post("/orders/checkout"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Cart is empty"));
+    }
+
+    // ── 35. GET /orders — lists user orders ───────────────────
+    @Test @Order(35) @WithMockUser(username = "testuser")
+    void getMyOrders() throws Exception {
+        Product p = seed("Speaker", 5000, "Audio", 15, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"));
+        mvc.perform(post("/orders/checkout"));
+        mvc.perform(get("/orders"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].username").value("testuser"));
+    }
+
+    // ── 36. GET /orders/{id} — order detail ───────────────────
+    @Test @Order(36) @WithMockUser(username = "testuser")
+    void getOrderById() throws Exception {
+        Product p = seed("Watch", 8000, "Accessories", 5, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"));
+        String orderJson = mvc.perform(post("/orders/checkout"))
+                .andReturn().getResponse().getContentAsString();
+        Long orderId = mapper.readTree(orderJson).get("id").asLong();
+        mvc.perform(get("/orders/" + orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(orderId))
+                .andExpect(jsonPath("$.items", hasSize(1)));
+    }
+
+    // ── 37. PUT /orders/{id}/status — admin updates status ────
+    @Test @Order(37) @WithMockUser(username = "testuser")
+    void updateOrderStatus() throws Exception {
+        Product p = seed("Keyboard", 3000, "Computers", 20, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"));
+        String orderJson = mvc.perform(post("/orders/checkout"))
+                .andReturn().getResponse().getContentAsString();
+        Long orderId = mapper.readTree(orderJson).get("id").asLong();
+        mvc.perform(put("/orders/" + orderId + "/status?status=CONFIRMED")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CONFIRMED"));
+    }
+
+    // ── 38. PUT /orders/{id}/status — non-admin → 403 ─────────
+    @Test @Order(38) @WithMockUser(username = "testuser", roles = "USER")
+    void updateOrderStatusForbidden() throws Exception {
+        mvc.perform(put("/orders/1/status?status=SHIPPED"))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── 39. Checkout deducts product stock ────────────────────
+    @Test @Order(39) @WithMockUser(username = "testuser")
+    void checkoutDeductsStock() throws Exception {
+        Product p = seed("Monitor", 15000, "Electronics", 10, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=3"));
+        mvc.perform(post("/orders/checkout")).andExpect(status().isOk());
+        // stock should now be 10 - 3 = 7
+        mvc.perform(get("/products/" + p.getId())
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("testuser").roles("USER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stock").value(7));
+    }
+
+    // ── 40. Checkout deducts stock for multiple items ─────────
+    @Test @Order(40) @WithMockUser(username = "testuser")
+    void checkoutDeductsStockMultipleItems() throws Exception {
+        Product p1 = seed("Router", 3000, "Electronics", 8, "desc");
+        Product p2 = seed("Printer", 7000, "Electronics", 5, "desc");
+        mvc.perform(post("/cart/add?productId=" + p1.getId() + "&quantity=2"));
+        mvc.perform(post("/cart/add?productId=" + p2.getId() + "&quantity=4"));
+        mvc.perform(post("/orders/checkout")).andExpect(status().isOk());
+        // p1: 8 - 2 = 6, p2: 5 - 4 = 1
+        mvc.perform(get("/products/" + p1.getId())
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("u").roles("USER")))
+                .andExpect(jsonPath("$.stock").value(6));
+        mvc.perform(get("/products/" + p2.getId())
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("u").roles("USER")))
+                .andExpect(jsonPath("$.stock").value(1));
+    }
+
+    // ── 41. Add to cart blocked when qty exceeds stock ────────
+    @Test @Order(41) @WithMockUser(username = "testuser")
+    void addToCartExceedsStock() throws Exception {
+        Product p = seed("Cable", 500, "Electronics", 3, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=5"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only 3 in stock"));
+    }
+
+    // ── 42. Add to cart: cumulative qty blocked at stock limit ─
+    @Test @Order(42) @WithMockUser(username = "testuser")
+    void addToCartCumulativeExceedsStock() throws Exception {
+        Product p = seed("Charger", 800, "Electronics", 4, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=3"))
+                .andExpect(status().isOk());
+        // already 3 in cart, stock=4, adding 2 more would be 5 > 4
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=2"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only 4 in stock"));
+    }
+
+    // ── 43. PUT /cart/update — updates qty correctly ──────────
+    @Test @Order(43) @WithMockUser(username = "testuser")
+    void updateCartItemQty() throws Exception {
+        Product p = seed("Scanner", 4000, "Electronics", 10, "desc");
+        String cartJson = mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"))
+                .andReturn().getResponse().getContentAsString();
+        Long itemId = mapper.readTree(cartJson).get("items").get(0).get("id").asLong();
+        mvc.perform(put("/cart/update/" + itemId + "?quantity=5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].quantity").value(5));
+    }
+
+    // ── 44. PUT /cart/update — blocked when qty exceeds stock ─
+    @Test @Order(44) @WithMockUser(username = "testuser")
+    void updateCartItemQtyExceedsStock() throws Exception {
+        Product p = seed("Mouse", 1200, "Electronics", 3, "desc");
+        String cartJson = mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"))
+                .andReturn().getResponse().getContentAsString();
+        Long itemId = mapper.readTree(cartJson).get("items").get(0).get("id").asLong();
+        mvc.perform(put("/cart/update/" + itemId + "?quantity=10"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Only 3 in stock"));
+    }
+
+    // ── 45. Cancelled order restores stock ────────────────────
+    @Test @Order(45) @WithMockUser(username = "testuser")
+    void cancelOrderRestoresStock() throws Exception {
+        Product p = seed("Headphones", 2000, "Audio", 6, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=4"));
+        String orderJson = mvc.perform(post("/orders/checkout"))
+                .andReturn().getResponse().getContentAsString();
+        Long orderId = mapper.readTree(orderJson).get("id").asLong();
+        // stock should be 6 - 4 = 2 after checkout
+        mvc.perform(get("/products/" + p.getId())
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("u").roles("USER")))
+                .andExpect(jsonPath("$.stock").value(2));
+        // cancel the order — stock should be restored to 6
+        mvc.perform(put("/orders/" + orderId + "/status?status=CANCELLED")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+        mvc.perform(get("/products/" + p.getId())
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("u").roles("USER")))
+                .andExpect(jsonPath("$.stock").value(6));
+    }
+
+    // ── 46. Cancel already-cancelled order → 400 (no duplicate restore) ─
+    @Test @Order(46) @WithMockUser(username = "testuser")
+    void cancelAlreadyCancelledOrderBlocked() throws Exception {
+        Product p = seed("Tripod", 1500, "Electronics", 5, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=2"));
+        String orderJson = mvc.perform(post("/orders/checkout"))
+                .andReturn().getResponse().getContentAsString();
+        Long orderId = mapper.readTree(orderJson).get("id").asLong();
+        // cancel once — stock restored: 5-2=3 → back to 5
+        mvc.perform(put("/orders/" + orderId + "/status?status=CANCELLED")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+                .andExpect(status().isOk());
+        // try to cancel again — must be blocked
+        mvc.perform(put("/orders/" + orderId + "/status?status=CANCELLED")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+        // stock must still be 5, not 7
+        mvc.perform(get("/products/" + p.getId())
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("u").roles("USER")))
+                .andExpect(jsonPath("$.stock").value(5));
+    }
+
+    // ── 47. Cannot cancel a SHIPPED order ────────────────────
+    @Test @Order(47) @WithMockUser(username = "testuser")
+    void cannotCancelShippedOrder() throws Exception {
+        Product p = seed("Lens", 8000, "Electronics", 3, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"));
+        String orderJson = mvc.perform(post("/orders/checkout"))
+                .andReturn().getResponse().getContentAsString();
+        Long orderId = mapper.readTree(orderJson).get("id").asLong();
+        // PENDING → CONFIRMED
+        mvc.perform(put("/orders/" + orderId + "/status?status=CONFIRMED")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+                .andExpect(status().isOk());
+        // CONFIRMED → SHIPPED
+        mvc.perform(put("/orders/" + orderId + "/status?status=SHIPPED")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+                .andExpect(status().isOk());
+        // SHIPPED → CANCELLED must be blocked
+        mvc.perform(put("/orders/" + orderId + "/status?status=CANCELLED")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
+    }
+
+    // ── 48. Invalid transition PENDING → DELIVERED blocked ──────
+    @Test @Order(48) @WithMockUser(username = "testuser")
+    void invalidTransitionBlocked() throws Exception {
+        Product p = seed("Flash", 500, "Electronics", 10, "desc");
+        mvc.perform(post("/cart/add?productId=" + p.getId() + "&quantity=1"));
+        String orderJson = mvc.perform(post("/orders/checkout"))
+                .andReturn().getResponse().getContentAsString();
+        Long orderId = mapper.readTree(orderJson).get("id").asLong();
+        mvc.perform(put("/orders/" + orderId + "/status?status=DELIVERED")
+                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("admin").roles("ADMIN")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists());
     }
 }

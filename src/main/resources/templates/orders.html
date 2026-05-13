@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>My Orders — ShopSmart</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="/" class="brand">🛒 ShopSmart</a>
+    <div class="nav-links">
+        <a href="/" class="nav-btn">🏠 Products</a>
+        <a href="/cart-page" class="nav-btn">🛒 Cart</a>
+        <span class="nav-user">
+            <a href="/my-orders" class="nav-btn">📋 My Orders</a>
+            <span class="nav-username" sec:authentication="name">user</span>
+            <span class="role-badge" sec:authorize="hasRole('ADMIN')">ADMIN</span>
+            <span class="role-badge role-user" sec:authorize="hasRole('USER')">USER</span>
+        </span>
+        <form method="post" action="/logout" style="display:inline">
+            <button type="submit" class="nav-btn nav-btn-danger">Logout</button>
+        </form>
+    </div>
+</nav>
+
+<div class="container">
+    <h2 style="margin-bottom:1.5rem;">📋 My Orders</h2>
+
+    <!-- Admin: view all orders -->
+    <div sec:authorize="hasRole('ADMIN')" style="margin-bottom:1rem;">
+        <button class="nav-btn nav-btn-success" onclick="loadAllOrders()">👁️ View All Orders (Admin)</button>
+    </div>
+
+    <div th:if="${#lists.isEmpty(orders)}" class="empty-state">
+        <div class="icon">📭</div>
+        <p>No orders yet. <a href="/">Start shopping!</a></p>
+    </div>
+
+    <div id="ordersContainer">
+        <div th:each="o : ${orders}" class="form-card" style="margin-bottom:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+                <div>
+                    <strong>Order #<span th:text="${o.id}"></span></strong>
+                    <span th:text="' — ' + ${o.createdAt}" style="color:#888;font-size:.85rem;"></span>
+                </div>
+                <div style="display:flex;gap:.75rem;align-items:center;">
+                    <span th:text="'₹' + ${#numbers.formatDecimal(o.total, 1, 2)}" style="font-weight:700;color:#6c63ff;"></span>
+                    <span class="stock-badge"
+                          th:classappend="${o.status.name() == 'DELIVERED'} ? 'stock-ok' : (${o.status.name() == 'CANCELLED'} ? 'stock-zero' : 'stock-low')"
+                          th:text="${o.status}"></span>
+                    <a th:href="'/my-orders/' + ${o.id}" class="btn btn-outline btn-sm">View</a>
+                    <!-- Admin: only show quick-confirm for PENDING orders -->
+                    <span sec:authorize="hasRole('ADMIN')"
+                          th:if="${o.status.name() == 'PENDING'}">
+                        <button class="btn btn-primary btn-sm"
+                                th:onclick="'quickConfirm(' + ${o.id} + ')'">✅ Confirm</button>
+                        <button class="btn btn-danger btn-sm"
+                                th:onclick="'quickCancel(' + ${o.id} + ')'">✖ Cancel</button>
+                    </span>
+                    <span sec:authorize="hasRole('ADMIN')"
+                          th:if="${o.status.name() == 'CONFIRMED'}">
+                        <button class="btn btn-danger btn-sm"
+                                th:onclick="'quickCancel(' + ${o.id} + ')'">✖ Cancel</button>
+                    </span>
+                </div>
+            </div>
+            <div style="margin-top:.5rem;font-size:.85rem;color:#555;">
+                <span th:each="item, iter : ${o.items}">
+                    <span th:text="${item.productName}"></span> x<span th:text="${item.quantity}"></span><span th:if="!${iter.last}">, </span>
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function quickConfirm(orderId) {
+    if (!confirm('Confirm this order?')) return;
+    updateOrderStatus(orderId, 'CONFIRMED');
+}
+function quickCancel(orderId) {
+    if (!confirm('Cancel this order? Stock will be restored.')) return;
+    updateOrderStatus(orderId, 'CANCELLED');
+}
+function updateOrderStatus(orderId, status) {
+    fetch('/orders/' + orderId + '/status?status=' + status, { method: 'PUT' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) showToast(data.error, 'error');
+            else { showToast('Order ' + status.toLowerCase() + '!', 'success'); setTimeout(() => location.reload(), 800); }
+        })
+        .catch(() => showToast('Update failed', 'error'));
+}
+
+function loadAllOrders() {
+    fetch('/orders/all')
+        .then(r => r.json())
+        .then(orders => {
+            const c = document.getElementById('ordersContainer');
+            if (!orders.length) { c.innerHTML = '<p style="color:#888">No orders in system.</p>'; return; }
+            c.innerHTML = orders.map(o => `
+                <div class="form-card" style="margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;">
+                        <div><strong>Order #${o.id}</strong> <span style="color:#888;font-size:.85rem;">— ${o.username} — ${o.createdAt}</span></div>
+                        <div style="display:flex;gap:.75rem;align-items:center;">
+                            <span style="font-weight:700;color:#6c63ff;">₹${o.total.toLocaleString('en-IN',{minimumFractionDigits:2})}</span>
+                            <span class="stock-badge ${o.status==='DELIVERED'?'stock-ok':o.status==='CANCELLED'?'stock-zero':'stock-low'}">${o.status}</span>
+                            <a href="/my-orders/${o.id}" class="btn btn-outline btn-sm">View</a>
+                        </div>
+                    </div>
+                    <div style="margin-top:.5rem;font-size:.85rem;color:#555;">${(o.items||[]).map(i=>i.productName+' x'+i.quantity).join(', ')}</div>
+                </div>`).join('');
+        })
+        .catch(() => showToast('Failed to load orders', 'error'));
+}
+
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    setTimeout(() => t.className = '', 3000);
+}
+</script>
+</body>
+</html>

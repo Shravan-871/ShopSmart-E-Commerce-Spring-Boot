@@ -1,7 +1,10 @@
 package com.shopsmart.controller;
 
+import com.shopsmart.model.Order;
 import com.shopsmart.model.Product;
 import com.shopsmart.model.ProductStats;
+import com.shopsmart.repository.CartRepository;
+import com.shopsmart.repository.OrderRepository;
 import com.shopsmart.repository.ProductRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -9,15 +12,20 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @Controller
 public class UiController {
 
     private final ProductRepository repo;
+    private final CartRepository cartRepo;
+    private final OrderRepository orderRepo;
 
-    public UiController(ProductRepository repo) {
+    public UiController(ProductRepository repo, CartRepository cartRepo, OrderRepository orderRepo) {
         this.repo = repo;
+        this.cartRepo = cartRepo;
+        this.orderRepo = orderRepo;
     }
 
     @GetMapping("/")
@@ -72,5 +80,29 @@ public class UiController {
     public String deleteProduct(@PathVariable Long id) {
         repo.deleteById(id);
         return "redirect:/";
+    }
+
+    @GetMapping("/cart-page")
+    public String cartPage() {
+        return "cart";
+    }
+
+    @GetMapping("/my-orders")
+    public String myOrders(Model model, Principal principal) {
+        List<Order> orders = orderRepo.findByUsernameOrderByCreatedAtDesc(principal.getName());
+        model.addAttribute("orders", orders);
+        return "orders";
+    }
+
+    @GetMapping("/my-orders/{id}")
+    public String orderDetail(@PathVariable Long id, Model model, Principal principal) {
+        return orderRepo.findById(id)
+                .filter(o -> o.getUsername().equals(principal.getName()) ||
+                        principal.getName().equals("admin"))
+                .map(o -> {
+                    model.addAttribute("order", o);
+                    return "order-detail";
+                })
+                .orElse("redirect:/my-orders");
     }
 }

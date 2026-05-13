@@ -4,12 +4,14 @@ import com.shopsmart.service.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
@@ -35,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST,   "/products/**", "/ui/products/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT,    "/products/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/products/**").hasRole("ADMIN")
+                .requestMatchers("/cart/**", "/orders/**", "/cart-page", "/my-orders", "/my-orders/**").authenticated()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
