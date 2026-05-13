@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Cart — ShopSmart</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="/" class="brand">🛒 ShopSmart</a>
+    <div class="nav-links">
+        <a href="/" class="nav-btn">🏠 Products</a>
+        <a href="/my-orders" class="nav-btn">📋 My Orders</a>
+        <span class="nav-user">
+            <span class="nav-username" sec:authentication="name">user</span>
+            <span class="role-badge" sec:authorize="hasRole('ADMIN')">ADMIN</span>
+            <span class="role-badge role-user" sec:authorize="hasRole('USER')">USER</span>
+        </span>
+        <form method="post" action="/logout" style="display:inline">
+            <button type="submit" class="nav-btn nav-btn-danger">Logout</button>
+        </form>
+    </div>
+</nav>
+
+<div class="container" style="max-width:700px;">
+    <h2 style="margin-bottom:1.5rem;">🛒 Your Cart</h2>
+    <div id="cartContent" class="form-card">
+        <p style="color:#888;text-align:center;">Loading cart...</p>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function loadCart() {
+    fetch('/cart')
+        .then(r => r.json())
+        .then(cart => renderCart(cart))
+        .catch(() => showToast('Failed to load cart', 'error'));
+}
+
+function renderCart(cart) {
+    const items = cart.items || [];
+    const c = document.getElementById('cartContent');
+    if (!items.length) {
+        c.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>Your cart is empty. <a href="/">Browse products</a></p></div>';
+        return;
+    }
+    const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+    c.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;">
+            <thead>
+                <tr style="border-bottom:2px solid #eee;text-align:left;">
+                    <th style="padding:.5rem;">Product</th>
+                    <th style="padding:.5rem;text-align:right;">Price</th>
+                    <th style="padding:.5rem;text-align:center;">Qty</th>
+                    <th style="padding:.5rem;text-align:right;">Subtotal</th>
+                    <th style="padding:.5rem;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                ${items.map(i => `
+                <tr style="border-bottom:1px solid #f0f0f0;">
+                    <td style="padding:.6rem .5rem;">${i.product.name}<br><small style="color:#888;">${i.product.category}</small><br><small style="color:${i.product.stock <= 10 ? '#e74c3c' : '#27ae60'};">Stock: ${i.product.stock}</small></td>
+                    <td style="padding:.6rem .5rem;text-align:right;">&#8377;${i.product.price.toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                    <td style="padding:.6rem .5rem;text-align:center;">
+                        <input type="number" min="1" max="${i.product.stock}" value="${i.quantity}"
+                               style="width:65px;text-align:center;padding:.2rem;"
+                               onchange="updateQty(${i.id}, this.value, ${i.product.stock}, this)"/>
+                    </td>
+                    <td style="padding:.6rem .5rem;text-align:right;font-weight:600;">&#8377;${(i.product.price * i.quantity).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>
+                    <td style="padding:.6rem .5rem;text-align:center;">
+                        <button class="btn btn-danger btn-sm" onclick="removeItem(${i.id})">&#128465;</button>
+                    </td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
+            <div style="font-size:1.2rem;font-weight:700;color:#6c63ff;">
+                Total: &#8377;${total.toLocaleString('en-IN',{minimumFractionDigits:2})}
+            </div>
+            <div style="display:flex;gap:.75rem;">
+                <button class="btn btn-outline" onclick="clearCart()">Clear Cart</button>
+                <button class="btn btn-primary" onclick="checkout()">&#9989; Checkout</button>
+            </div>
+        </div>`;
+}
+
+function updateQty(itemId, qty, maxStock, input) {
+    qty = parseInt(qty);
+    if (isNaN(qty) || qty < 1) { input.value = 1; qty = 1; }
+    if (qty > maxStock) {
+        showToast('Only ' + maxStock + ' in stock', 'error');
+        input.value = maxStock;
+        qty = maxStock;
+    }
+    fetch('/cart/update/' + itemId + '?quantity=' + qty, { method: 'PUT' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) { showToast(data.error, 'error'); loadCart(); }
+            else renderCart(data);
+        })
+        .catch(() => showToast('Update failed', 'error'));
+}
+
+function removeItem(itemId) {
+    fetch('/cart/remove/' + itemId, { method: 'DELETE' })
+        .then(r => r.ok ? (showToast('Item removed', 'success'), loadCart()) : showToast('Failed', 'error'))
+        .catch(() => showToast('Failed', 'error'));
+}
+
+function clearCart() {
+    if (!confirm('Clear your entire cart?')) return;
+    fetch('/cart/clear', { method: 'DELETE' })
+        .then(r => r.ok ? (showToast('Cart cleared', 'success'), loadCart()) : showToast('Failed', 'error'))
+        .catch(() => showToast('Failed', 'error'));
+}
+
+function checkout() {
+    if (!confirm('Place this order?')) return;
+    fetch('/orders/checkout', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.id) {
+                showToast('Order #' + data.id + ' placed!', 'success');
+                setTimeout(() => window.location.href = '/my-orders/' + data.id, 1000);
+            } else {
+                showToast(data.error || 'Checkout failed', 'error');
+            }
+        })
+        .catch(() => showToast('Checkout failed', 'error'));
+}
+
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    setTimeout(() => t.className = '', 3000);
+}
+
+loadCart();
+</script>
+</body>
+</html>

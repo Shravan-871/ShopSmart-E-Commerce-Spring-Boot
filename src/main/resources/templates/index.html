@@ -36,6 +36,8 @@
         </span>
         <!-- User info + logout -->
         <span class="nav-user">
+            <a href="/cart-page" class="nav-btn">🛒 Cart</a>
+            <a href="/my-orders" class="nav-btn">📋 My Orders</a>
             <span class="nav-username" sec:authentication="name">user</span>
             <span class="role-badge" sec:authorize="hasRole('ADMIN')">ADMIN</span>
             <span class="role-badge role-user" sec:authorize="hasRole('USER')">USER</span>
@@ -153,12 +155,16 @@
                     <span th:if="${p.stock > 0 and p.stock <= 10}" class="stock-badge stock-low">• Low (<span th:text="${p.stock}"></span>)</span>
                     <span th:if="${p.stock == 0}"  class="stock-badge stock-zero">• Out of Stock</span>
                 </div>
-                <div class="actions" sec:authorize="hasRole('ADMIN')">
-                    <button class="btn btn-outline btn-sm edit-btn">✏️</button>
-                    <form th:action="'/ui/products/delete/' + ${p.id}" method="post" style="display:inline"
-                          onsubmit="return confirm('Delete this product?')">
-                        <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
-                    </form>
+                <div class="actions">
+                    <button class="btn btn-outline btn-sm cart-btn" th:data-product-id="${p.id}"
+                            th:disabled="${p.stock == 0}">🛒</button>
+                    <span sec:authorize="hasRole('ADMIN')">
+                        <button class="btn btn-outline btn-sm edit-btn">✏️</button>
+                        <form th:action="'/ui/products/delete/' + ${p.id}" method="post" style="display:inline"
+                              onsubmit="return confirm('Delete this product?')">
+                            <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+                        </form>
+                    </span>
                 </div>
             </div>
         </div>
@@ -407,6 +413,17 @@ function showToast(msg, type = 'success') {
     t.className = 'show ' + type;
     setTimeout(() => t.className = '', 3000);
 }
+
+// Wire cart buttons
+document.querySelectorAll('.cart-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const productId = this.dataset.productId;
+        fetch('/cart/add?productId=' + productId + '&quantity=1', { method: 'POST' })
+            .then(r => r.ok ? showToast('Added to cart! 🛒', 'success') : showToast('Failed to add to cart', 'error'))
+            .catch(() => showToast('Failed to add to cart', 'error'));
+    });
+});
 
 // Close modals on overlay click
 document.getElementById('editModal').addEventListener('click', function(e) {

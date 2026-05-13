@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Order Detail — ShopSmart</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+    <style>
+        .progress-track {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0;
+            gap: 0;
+        }
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            position: relative;
+        }
+        /* static connector line (grey base) */
+        .progress-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            width: 100%;
+            height: 3px;
+            background: #e0e0e0;
+            z-index: 0;
+        }
+        /* fully-filled connector for done steps */
+        .progress-step.done:not(:last-child)::after {
+            background: #6c63ff;
+        }
+        /* animated fill overlay — sits on top of the grey base */
+        .progress-step .connector-fill {
+            display: none;
+        }
+        .progress-step.animating .connector-fill {
+            display: block;
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            width: 0%;
+            height: 3px;
+            background: #6c63ff;
+            z-index: 1;
+            transition: none;
+        }
+        .step-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .9rem;
+            z-index: 2;
+            position: relative;
+            font-weight: 700;
+        }
+        .progress-step.done .step-dot   { background: #6c63ff; color: #fff; }
+        .progress-step.active .step-dot { background: #6c63ff; color: #fff; box-shadow: 0 0 0 4px #e0dbff; }
+        .step-label {
+            font-size: .72rem;
+            margin-top: .4rem;
+            color: #888;
+            text-align: center;
+        }
+        .progress-step.done .step-label,
+        .progress-step.active .step-label { color: #6c63ff; font-weight: 600; }
+        .lock-notice {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: .6rem 1rem;
+            font-size: .85rem;
+            color: #856404;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="/" class="brand">🛒 ShopSmart</a>
+    <div class="nav-links">
+        <a href="/" class="nav-btn">🏠 Products</a>
+        <a href="/cart-page" class="nav-btn">🛒 Cart</a>
+        <a href="/my-orders" class="nav-btn">📋 My Orders</a>
+        <span class="nav-user">
+            <span class="nav-username" sec:authentication="name">user</span>
+            <span class="role-badge" sec:authorize="hasRole('ADMIN')">ADMIN</span>
+            <span class="role-badge role-user" sec:authorize="hasRole('USER')">USER</span>
+        </span>
+        <form method="post" action="/logout" style="display:inline">
+            <button type="submit" class="nav-btn nav-btn-danger">Logout</button>
+        </form>
+    </div>
+</nav>
+
+<div class="container" style="max-width:720px;">
+    <div class="form-card">
+
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem;">
+            <h2 style="margin:0;">Order #<span th:text="${order.id}"></span></h2>
+            <span class="stock-badge"
+                  th:classappend="${order.status.name() == 'DELIVERED'} ? 'stock-ok' : (${order.status.name() == 'CANCELLED'} ? 'stock-zero' : 'stock-low')"
+                  th:text="${order.status}" style="font-size:1rem;padding:.4rem .9rem;"></span>
+        </div>
+        <div style="color:#888;font-size:.85rem;margin-bottom:1.5rem;">
+            Placed: <span th:text="${order.createdAt}"></span>
+        </div>
+
+        <!-- Progress tracker (hidden if cancelled) -->
+        <div th:if="${order.status.name() != 'CANCELLED'}" class="progress-track" id="progressTrack">
+            <div th:class="'progress-step ' + (${order.status.name() == 'PENDING'} ? 'active' : 'done')">
+                <div class="step-dot">&#128203;</div>
+                <div class="step-label">Placed</div>
+            </div>
+            <div id="stepConfirmed"
+                 th:class="'progress-step ' + (${order.status.name() == 'CONFIRMED'} ? 'active' : (${order.status.name() == 'PENDING'} ? '' : 'done'))">
+                <div class="connector-fill" id="fillConfirmed"></div>
+                <div class="step-dot">&#9989;</div>
+                <div class="step-label">Confirmed</div>
+            </div>
+            <div id="stepShipped"
+                 th:class="'progress-step ' + (${order.status.name() == 'SHIPPED'} ? 'active' : (${#lists.contains({'PENDING','CONFIRMED'}, order.status.name())} ? '' : 'done'))">
+                <div class="connector-fill" id="fillShipped"></div>
+                <div class="step-dot">&#128666;</div>
+                <div class="step-label">Shipped</div>
+            </div>
+            <div th:class="'progress-step ' + (${order.status.name() == 'DELIVERED'} ? 'active done' : '')">
+                <div class="step-dot">&#128230;</div>
+                <div class="step-label">Delivered</div>
+            </div>
+        </div>
+
+        <!-- Cancelled banner -->
+        <div th:if="${order.status.name() == 'CANCELLED'}"
+             style="background:#ffeaea;border:1px solid #e74c3c;border-radius:8px;padding:.75rem 1rem;margin-bottom:1.5rem;color:#c0392b;font-weight:600;">
+            ❌ This order was cancelled. Stock has been restored.
+        </div>
+
+        <!-- Auto-progress notice with countdown -->
+        <div th:if="${order.status.name() == 'CONFIRMED'}" class="lock-notice" id="countdownBox">
+            &#9201; Shipping in <strong id="countdown">...</strong> &mdash; you can still cancel before that.
+        </div>
+        <div th:if="${order.status.name() == 'SHIPPED'}" class="lock-notice" id="countdownBox">
+            &#9201; Delivering in <strong id="countdown">...</strong> &mdash; order is locked, cannot be cancelled.
+        </div>
+
+        <!-- Items table -->
+        <table style="width:100%;border-collapse:collapse;margin:1.5rem 0;">
+            <thead>
+                <tr style="border-bottom:2px solid #eee;text-align:left;">
+                    <th style="padding:.5rem;">Product</th>
+                    <th style="padding:.5rem;">Category</th>
+                    <th style="padding:.5rem;text-align:right;">Price</th>
+                    <th style="padding:.5rem;text-align:center;">Qty</th>
+                    <th style="padding:.5rem;text-align:right;">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="item : ${order.items}" style="border-bottom:1px solid #f0f0f0;">
+                    <td style="padding:.6rem .5rem;" th:text="${item.productName}"></td>
+                    <td style="padding:.6rem .5rem;color:#888;" th:text="${item.productCategory}"></td>
+                    <td style="padding:.6rem .5rem;text-align:right;" th:text="'₹' + ${#numbers.formatDecimal(item.productPrice, 1, 2)}"></td>
+                    <td style="padding:.6rem .5rem;text-align:center;" th:text="${item.quantity}"></td>
+                    <td style="padding:.6rem .5rem;text-align:right;font-weight:600;"
+                        th:text="'₹' + ${#numbers.formatDecimal(item.productPrice * item.quantity, 1, 2)}"></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div style="text-align:right;font-size:1.2rem;font-weight:700;color:#6c63ff;">
+            Total: ₹<span th:text="${#numbers.formatDecimal(order.total, 1, 2)}"></span>
+        </div>
+
+        <!-- Admin controls — only shown for editable states -->
+        <div sec:authorize="hasRole('ADMIN')"
+             th:if="${order.status.name() == 'PENDING' or order.status.name() == 'CONFIRMED'}"
+             style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #eee;">
+            <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+                <label style="font-weight:600;">Update Status:</label>
+                <select id="statusSelect" class="filter-select">
+                    <th:block th:if="${order.status.name() == 'PENDING'}">
+                        <option value="CONFIRMED">CONFIRMED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                    </th:block>
+                    <th:block th:if="${order.status.name() == 'CONFIRMED'}">
+                        <option value="CANCELLED">CANCELLED</option>
+                    </th:block>
+                </select>
+                <button class="btn btn-primary" onclick="updateStatus()">Save</button>
+            </div>
+            <div style="font-size:.8rem;color:#888;margin-top:.4rem;">
+                <span th:if="${order.status.name() == 'PENDING'}">Admin can confirm or cancel. Once shipped, no changes possible.</span>
+                <span th:if="${order.status.name() == 'CONFIRMED'}">Order will auto-ship in ~30s. You can still cancel before that.</span>
+            </div>
+        </div>
+
+        <!-- User cancel button — shown to order owner for PENDING or CONFIRMED only -->
+        <div sec:authorize="hasRole('USER')"
+             th:if="${order.status.name() == 'PENDING' or order.status.name() == 'CONFIRMED'}"
+             style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid #eee;">
+            <button class="btn btn-danger" onclick="cancelOrder()">&#10006; Cancel Order</button>
+            <div style="font-size:.8rem;color:#888;margin-top:.4rem;">
+                <span th:if="${order.status.name() == 'PENDING'}">You can cancel before admin confirms.</span>
+                <span th:if="${order.status.name() == 'CONFIRMED'}">You can still cancel before it ships (~30s window).</span>
+            </div>
+        </div>
+
+        <!-- Locked notice for terminal states -->
+        <div th:if="${order.status.name() == 'SHIPPED' or order.status.name() == 'DELIVERED' or order.status.name() == 'CANCELLED'}"
+             style="margin-top:1.5rem;padding:.75rem 1rem;background:#f8f9fa;border-radius:8px;font-size:.85rem;color:#666;">
+            &#128274; Order is <strong th:text="${order.status}"></strong> — no further changes allowed.
+        </div>
+
+    </div>
+
+    <div style="margin-top:1rem;">
+        <a href="/my-orders" class="btn btn-outline">← Back to Orders</a>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script th:inline="javascript">
+const orderId     = /*[[${order.id}]]*/ 0;
+const orderStatus = /*[[${order.status.name()}]]*/ '';
+const confirmedAt = /*[[${order.confirmedAt}]]*/ null;
+const shippedAt   = /*[[${order.shippedAt}]]*/ null;
+
+// ── Retry reload: tries up to 5 times every 3s until status changes ──────────
+function scheduleRetryReload(expectedNewStatus) {
+    let attempts = 0;
+    const check = setInterval(() => {
+        attempts++;
+        fetch('/orders/' + orderId)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === expectedNewStatus || attempts >= 5) {
+                    clearInterval(check);
+                    location.reload();
+                }
+            })
+            .catch(() => { if (attempts >= 5) { clearInterval(check); location.reload(); } });
+    }, 3000);
+}
+
+// ── Animated connector fill + countdown ──────────────────────────────────────
+(function() {
+    const countdownEl = document.getElementById('countdown');
+    if (!countdownEl) return;
+
+    let startMs, durationMs, fillEl, stepEl, expectedNext;
+
+    if (orderStatus === 'CONFIRMED' && confirmedAt) {
+        durationMs   = 30_000;
+        startMs      = new Date(confirmedAt).getTime();
+        fillEl       = document.getElementById('fillConfirmed');
+        stepEl       = document.getElementById('stepConfirmed');
+        expectedNext = 'SHIPPED';
+    } else if (orderStatus === 'SHIPPED' && shippedAt) {
+        durationMs   = 60_000;
+        startMs      = new Date(shippedAt).getTime();
+        fillEl       = document.getElementById('fillShipped');
+        stepEl       = document.getElementById('stepShipped');
+        expectedNext = 'DELIVERED';
+    } else {
+        return;
+    }
+
+    const targetMs = startMs + durationMs;
+
+    // Enable animated fill on the connector
+    if (stepEl) stepEl.classList.add('animating');
+
+    function tick() {
+        const now       = Date.now();
+        const elapsed   = now - startMs;
+        const remaining = Math.max(0, targetMs - now);
+        const pct       = Math.min(100, (elapsed / durationMs) * 100);
+
+        // Update countdown text
+        countdownEl.textContent = Math.ceil(remaining / 1000) + 's';
+
+        // Animate the connector fill width
+        if (fillEl) fillEl.style.width = pct + '%';
+
+        if (remaining <= 0) {
+            clearInterval(timer);
+            countdownEl.textContent = '0s';
+            if (fillEl) fillEl.style.width = '100%';
+            // Retry reload until server reflects new status
+            scheduleRetryReload(expectedNext);
+        }
+    }
+
+    tick();
+    const timer = setInterval(tick, 500); // 500ms for smooth fill
+})();
+
+// ── Admin status update ───────────────────────────────────────────────────────
+function updateStatus() {
+    const status = document.getElementById('statusSelect').value;
+    fetch('/orders/' + orderId + '/status?status=' + status, { method: 'PUT' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                showToast(data.error, 'error');
+            } else {
+                showToast('Status updated to ' + data.status + '!', 'success');
+                setTimeout(() => location.reload(), 900);
+            }
+        })
+        .catch(() => showToast('Update failed', 'error'));
+}
+
+// ── User cancel ───────────────────────────────────────────────────────────────
+function cancelOrder() {
+    if (!confirm('Cancel this order? Stock will be restored.')) return;
+    fetch('/orders/' + orderId + '/cancel', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                showToast(data.error, 'error');
+            } else {
+                showToast('Order cancelled.', 'success');
+                setTimeout(() => location.reload(), 900);
+            }
+        })
+        .catch(() => showToast('Cancel failed', 'error'));
+}
+
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    setTimeout(() => t.className = '', 3000);
+}
+</script>
+</body>
+</html>
