@@ -1,14 +1,18 @@
 package com.shopsmart.controller;
 
 import com.shopsmart.model.*;
+import com.shopsmart.model.Coupon;
 import com.shopsmart.repository.CartRepository;
+import com.shopsmart.repository.CouponRepository;
 import com.shopsmart.repository.OrderRepository;
 import com.shopsmart.repository.ProductRepository;
+import com.shopsmart.service.EmailService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,22 +20,29 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/orders")
+@RequestMapping({"/orders", "/api/v1/orders"})
 @Transactional
+@Tag(name = "Orders", description = "Order checkout and lifecycle")
 public class OrderController {
 
     private final OrderRepository orderRepo;
     private final CartRepository cartRepo;
     private final ProductRepository productRepo;
+    private final CouponRepository couponRepo;
+    private final EmailService emailService;
 
-    public OrderController(OrderRepository orderRepo, CartRepository cartRepo, ProductRepository productRepo) {
+    public OrderController(OrderRepository orderRepo, CartRepository cartRepo, ProductRepository productRepo,
+                           CouponRepository couponRepo, EmailService emailService) {
         this.orderRepo = orderRepo;
         this.cartRepo = cartRepo;
         this.productRepo = productRepo;
+        this.couponRepo = couponRepo;
+        this.emailService = emailService;
     }
 
     @PostMapping("/checkout")
-    public ResponseEntity<?> checkout(Principal principal) {
+    public ResponseEntity<?> checkout(Principal principal,
+                                      @RequestParam(required = false) String couponCode) {
         Optional<Cart> cartOpt = cartRepo.findByUsername(principal.getName());
         if (cartOpt.isEmpty() || cartOpt.get().getItems().isEmpty())
             return ResponseEntity.badRequest().body(Map.of("error", "Cart is empty"));
@@ -40,6 +51,18 @@ public class OrderController {
         double total = cart.getItems().stream()
                 .mapToDouble(i -> i.getProduct().getPrice() * i.getQuantity())
                 .sum();
+
+        if (couponCode != null && !couponCode.isBlank()) {
+            var couponOpt = couponRepo.findByCodeIgnoreCase(couponCode);
+            if (couponOpt.isEmpty())
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid coupon code"));
+            Coupon c = couponOpt.get();
+            if (!c.isActive() || c.getExpiryDate().isBefore(java.time.LocalDate.now()))
+                return ResponseEntity.badRequest().body(Map.of("error", "Coupon expired or inactive"));
+            double discount = c.getDiscountType() == Coupon.DiscountType.PERCENT
+                    ? total * c.getDiscountValue() / 100.0 : c.getDiscountValue();
+            total = Math.max(0, total - Math.min(discount, total));
+        }
 
         Order order = new Order(principal.getName(), total);
         for (CartItem item : cart.getItems()) {
@@ -51,6 +74,7 @@ public class OrderController {
         orderRepo.save(order);
         cart.getItems().clear();
         cartRepo.save(cart);
+        emailService.sendOrderConfirmation(order);
         return ResponseEntity.ok(order);
     }
 

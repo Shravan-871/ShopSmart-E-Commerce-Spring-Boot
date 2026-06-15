@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shopsmart
+      POSTGRES_USER: shopsmart
+      POSTGRES_PASSWORD: shopsmart
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://postgres:5432/shopsmart
+      DB_USERNAME: shopsmart
+      DB_PASSWORD: shopsmart
+      RUST_SERVICE_URL: http://rust-service:8081
+    depends_on:
+      - postgres
+      - rust-service
+
+  rust-service:
+    build: ./rust-service
+    ports:
+      - "8081:8081"
+    environment:
+      RUST_PORT: 8081
+      SPRING_BASE_URL: http://app:8080
+      SPRING_USERNAME: admin
+      SPRING_PASSWORD: admin123
+
+volumes:
+  pgdata:

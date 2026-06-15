@@ -1,0 +1,38 @@
+---
+description: ShopSmart E-Commerce project context, architecture, and conventions
+alwaysApply: true
+---
+
+# ShopSmart E-Commerce
+
+Spring Boot 3.3 + Rust sidecar e-commerce learning project.
+
+## Stack & Run
+
+- Java 17, Maven, package `com.shopsmart`
+- Spring Web MVC + JPA + Security + Thymeleaf + Flyway (V1–V6)
+- Rust Axum sidecar: `rust-service/` on **:8081**
+- **Main app:** `mvnw.cmd spring-boot:run` → **http://localhost:8080** (not port 80)
+- **Rust:** `cd rust-service && cargo run` → http://localhost:8081
+- Test: `mvnw.cmd test` (51 tests)
+
+## Plan files
+
+- **Next steps (step-by-step edits):** `IMPLEMENTATION_PLAN.md` ← start here
+- **Current status + API:** `PROJECT_STATUS.md`
+
+## Architecture
+
+| Layer | Location |
+|-------|----------|
+| REST + UI | `controller/*`, `templates/*.html` |
+| Rust analytics | `rust-service/` (proxies Spring via Basic auth) |
+| Persistence | `repository/`, `model/`, `db/migration/` |
+| Security | `SecurityConfig` — form login + HTTP Basic, ADMIN/USER |
+
+Business logic mostly in controllers. CSRF disabled.
+
+## Active work
+
+**Phase 9** (wire-up): images in UI → coupon on cart → wishlist button → HTML email → tests → README sync.  
+See `IMPLEMENTATION_PLAN.md` steps 9.1–9.6.

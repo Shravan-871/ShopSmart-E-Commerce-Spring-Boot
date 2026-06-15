@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Wishlist — ShopSmart</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+</head>
+<body>
+<nav class="navbar">
+    <a href="/" class="brand">🛒 ShopSmart</a>
+    <div class="nav-links">
+        <a href="/" class="nav-btn">Products</a>
+        <a href="/cart-page" class="nav-btn">🛒 Cart</a>
+    </div>
+</nav>
+<div class="container">
+    <h1 class="page-title">❤️ My Wishlist</h1>
+    <div class="products-grid" th:if="${!#lists.isEmpty(items)}">
+        <div th:each="item : ${items}" class="product-card">
+            <div class="product-card-body">
+                <div class="product-name" th:text="${item.product.name}">Product</div>
+                <div class="product-price" th:text="'₹' + ${#numbers.formatDecimal(item.product.price, 1, 0)}">₹0</div>
+                <button class="btn btn-danger" th:onclick="'removeWish(' + ${item.product.id} + ')'">Remove</button>
+            </div>
+        </div>
+    </div>
+    <div th:if="${#lists.isEmpty(items)}" class="empty-state">
+        <div class="icon">❤️</div>
+        <p>Your wishlist is empty.</p>
+    </div>
+</div>
+<script>
+function removeWish(id) {
+    fetch('/wishlist/remove/' + id, { method: 'DELETE' })
+        .then(() => location.reload());
+}
+</script>
+</body>
+</html>
