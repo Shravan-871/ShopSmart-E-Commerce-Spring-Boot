@@ -16,11 +16,6 @@ Spring Boot 3.3 + Rust sidecar e-commerce learning project.
 - **Rust:** `cd rust-service && cargo run` → http://localhost:8081
 - Test: `mvnw.cmd test` (51 tests)
 
-## Plan files
-
-- **Next steps (step-by-step edits):** `IMPLEMENTATION_PLAN.md` ← start here
-- **Current status + API:** `PROJECT_STATUS.md`
-
 ## Architecture
 
 | Layer | Location |
@@ -32,7 +27,23 @@ Spring Boot 3.3 + Rust sidecar e-commerce learning project.
 
 Business logic mostly in controllers. CSRF disabled.
 
+## Docs
+
+```
+docs/
+├── index.md                         ← start here
+├── architecture/
+│   ├── overview.md                  ← system diagram, layers, security, profiles, completed phases, known gaps
+│   ├── database.md                  ← Flyway V1–V6, all models
+│   └── api-reference.md             ← full endpoint table for all controllers
+└── guides/
+    ├── setup.md                     ← build, run, Docker, accounts, mail config
+    ├── running-tests.md             ← 51 tests, suites, JaCoCo, CI
+    ├── troubleshooting.md           ← port conflicts, H2, auth, Rust, Docker, Flyway
+    └── roadmap.md                  ← Phases 9–13 planned features, decision log
+```
+
 ## Active work
 
 **Phase 9** (wire-up): images in UI → coupon on cart → wishlist button → HTML email → tests → README sync.  
-See `IMPLEMENTATION_PLAN.md` steps 9.1–9.6.
+See `docs/guides/roadmap.md` Phase 9 steps.
