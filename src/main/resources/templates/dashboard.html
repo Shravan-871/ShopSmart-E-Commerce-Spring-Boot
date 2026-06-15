@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Admin Dashboard — ShopSmart</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<nav class="navbar">
+    <a href="/" class="brand">🛒 ShopSmart</a>
+    <div class="nav-links">
+        <a href="/admin/dashboard" class="nav-btn">📊 Dashboard</a>
+        <a href="/" class="nav-btn">Products</a>
+        <form method="post" action="/logout" style="display:inline">
+            <button type="submit" class="nav-btn nav-btn-danger">Logout</button>
+        </form>
+    </div>
+</nav>
+
+<div class="container">
+    <h1 class="page-title">Admin Dashboard</h1>
+
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-icon purple">📦</div>
+            <div class="stat-info">
+                <div class="label">Products</div>
+                <div class="value" th:text="${totalProducts}">0</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">📋</div>
+            <div class="stat-info">
+                <div class="label">Orders</div>
+                <div class="value" th:text="${totalOrders}">0</div>
+            </div>
+        </div>
+        <div class="stat-card" id="rust-stat-card" style="display:none">
+            <div class="stat-icon orange">🦀</div>
+            <div class="stat-info">
+                <div class="label">Rust Analytics</div>
+                <div class="value" id="rust-avg-price">—</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="chart-card">
+            <h3>Stock by Category</h3>
+            <canvas id="categoryChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Top 5 Expensive Products</h3>
+            <canvas id="priceChart"></canvas>
+        </div>
+    </div>
+
+    <div class="chart-card" style="margin-top:1.5rem">
+        <h3>Low Stock Alert (≤ 10)</h3>
+        <table class="data-table">
+            <thead><tr><th>Name</th><th>Category</th><th>Stock</th><th>Price</th></tr></thead>
+            <tbody>
+            <tr th:each="p : ${lowStock}" class="low-stock-row">
+                <td th:text="${p.name}">—</td>
+                <td th:text="${p.category}">—</td>
+                <td th:text="${p.stock}">0</td>
+                <td th:text="'₹' + ${#numbers.formatDecimal(p.price, 1, 0)}">₹0</td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(lowStock)}"><td colspan="4">All products well stocked</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const categoryLabels = /*[[${categoryLabels}]]*/ [];
+    const categoryStock = /*[[${categoryStock}]]*/ [];
+    const topNames = /*[[${topExpensive.![name]}]]*/ [];
+    const topPrices = /*[[${topExpensive.![price]}]]*/ [];
+    const rustUrl = /*[[${rustServiceUrl}]]*/ 'http://localhost:8081';
+
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'doughnut',
+        data: { labels: [...categoryLabels], datasets: [{ data: [...categoryStock], backgroundColor: ['#6366f1','#22c55e','#f59e0b','#ef4444','#3b82f6','#a855f7','#14b8a6','#f97316'] }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    new Chart(document.getElementById('priceChart'), {
+        type: 'bar',
+        data: { labels: [...topNames], datasets: [{ label: 'Price (₹)', data: [...topPrices], backgroundColor: '#6366f1' }] },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+
+    fetch(rustUrl + '/api/v1/analytics/summary')
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+            document.getElementById('rust-stat-card').style.display = 'flex';
+            document.getElementById('rust-avg-price').textContent = '₹' + Math.round(data.average_price);
+        })
+        .catch(() => {});
+</script>
+</body>
+</html>

@@ -10,13 +10,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/cart")
+@RequestMapping({"/cart", "/api/v1/cart"})
 @Transactional
+@Tag(name = "Cart", description = "Shopping cart operations")
 public class CartController {
 
     private final CartRepository cartRepo;

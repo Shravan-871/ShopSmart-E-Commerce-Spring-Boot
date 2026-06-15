@@ -1,6 +1,6 @@
 # 🛒 ShopSmart E-Commerce (Spring Boot)
 
-A backend-focused e-commerce application built with Spring Boot 3, Spring Security, Spring Data JPA, Thymeleaf, and an H2 in-memory database. Includes a fully styled responsive frontend, complete REST API, and 25 passing integration tests.
+A backend-focused e-commerce application built with Spring Boot 3, Spring Security, Spring Data JPA, Thymeleaf, and Flyway. Includes a Rust Axum analytics sidecar, full REST API, responsive frontend, and 51 passing tests.
 
 ---
 
@@ -21,15 +21,53 @@ mvnw.cmd spring-boot:run
 mvnw.cmd test
 ```
 
-App runs at → http://localhost:8080
-H2 Console  → http://localhost:8080/h2-console
+| URL | Description |
+|-----|-------------|
+| http://localhost:8080 | Main app |
+| http://localhost:8080/swagger-ui.html | API docs |
+| http://localhost:8080/h2-console | H2 DB console (dev) |
+| http://localhost:8080/admin/dashboard | Admin charts |
 
-**H2 Connection:**
+**H2 Connection (dev):**
 ```
 JDBC URL:  jdbc:h2:mem:testdb
 Username:  sa
 Password:  (empty)
 ```
+
+---
+
+## 🔐 Default Accounts
+
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `admin123` | ADMIN |
+| `user` | `user123` | USER |
+
+Seeded coupons: `SAVE10` (10% off), `FLAT500` (₹500 off)
+
+---
+
+## 🦀 Rust Sidecar (optional)
+
+Requires Spring Boot already running on `:8080`.
+
+```cmd
+cd rust-service
+cargo run
+```
+
+Rust service → http://localhost:8081
+
+---
+
+## 🐳 Docker
+
+```cmd
+docker-compose up --build
+```
+
+Starts Spring Boot + PostgreSQL + Rust sidecar together.
 
 ---
 
@@ -41,58 +79,74 @@ src/
 │   ├── java/com/shopsmart/
 │   │   ├── ShopsmartApplication.java
 │   │   ├── config/
-│   │   │   └── SecurityConfig.java          ← CSRF off, all requests permitted
+│   │   │   ├── SecurityConfig.java        ← form login + HTTP Basic, ADMIN/USER roles
+│   │   │   ├── CorsConfig.java
+│   │   │   ├── RateLimitFilter.java
+│   │   │   ├── WebConfig.java             ← static resource mapping (uploads/)
+│   │   │   ├── OpenApiConfig.java         ← Swagger/springdoc
+│   │   │   ├── DataInitializer.java       ← seeds users + coupons on startup
+│   │   │   └── OrderScheduler.java
 │   │   ├── controller/
-│   │   │   ├── ProductController.java        ← REST API
-│   │   │   └── UiController.java             ← Thymeleaf UI routes
+│   │   │   ├── ProductController.java     ← REST API + /api/v1 dual paths
+│   │   │   ├── CartController.java
+│   │   │   ├── OrderController.java
+│   │   │   ├── CouponController.java
+│   │   │   ├── WishlistController.java
+│   │   │   ├── AuthController.java
+│   │   │   ├── DashboardController.java
+│   │   │   └── UiController.java          ← Thymeleaf page routes
 │   │   ├── exception/
-│   │   │   └── GlobalExceptionHandler.java   ← 400 / 500 error maps
+│   │   │   ├── GlobalExceptionHandler.java
+│   │   │   └── ApiErrorResponse.java
 │   │   ├── model/
-│   │   │   ├── Product.java                  ← JPA entity + validation
-│   │   │   └── ProductStats.java             ← Stats DTO
-│   │   └── repository/
-│   │       └── ProductRepository.java        ← JPA + custom queries
+│   │   │   ├── Product.java + ProductStats.java
+│   │   │   ├── User.java
+│   │   │   ├── Cart.java + CartItem.java
+│   │   │   ├── Order.java + OrderItem.java
+│   │   │   ├── Coupon.java
+│   │   │   └── WishlistItem.java
+│   │   ├── repository/        ← JPA repositories (8 total)
+│   │   └── service/
+│   │       ├── UserService.java
+│   │       ├── UserDetailsServiceImpl.java
+│   │       └── EmailService.java
 │   └── resources/
-│       ├── templates/index.html              ← Thymeleaf UI
-│       ├── static/style.css                  ← Custom CSS
-│       └── application.properties
-└── test/
-    └── java/com/shopsmart/shopsmart/
-        ├── ProductApiTests.java              ← 24 integration tests
-        └── ShopsmartApplicationTests.java    ← context load test
+│       ├── db/migration/      ← Flyway V1–V6
+│       ├── templates/         ← index, cart, orders, order-detail, login,
+│       │                         register, dashboard, wishlist
+│       ├── static/style.css
+│       ├── application.properties
+│       ├── application-dev.properties   ← H2
+│       └── application-prod.properties  ← PostgreSQL
+├── test/
+│   └── java/com/shopsmart/shopsmart/
+│       ├── ProductApiTests.java          ← 48 integration tests
+│       ├── UserServiceTest.java          ← 2 unit tests (Mockito)
+│       └── ShopsmartApplicationTests.java
+rust-service/                  ← Axum sidecar on :8081
+docs/
+├── index.md
+├── architecture/              ← overview, database, api-reference
+└── guides/                   ← setup, running-tests, troubleshooting, roadmap
 ```
 
 ---
 
 ## 🚀 Features
 
-### Bug Fixes
-- ✅ `pom.xml` — fixed 4 broken non-existent artifact IDs, downgraded to stable Spring Boot 3.3.0
-- ✅ `GET /products/{id}` — was returning `null` with 200, now returns proper `404`
-- ✅ `PUT /products/{id}` — was returning `null` with 200 for missing IDs, now `404`
-- ✅ `PUT /products/{id}` — had no validation, now `@Valid` enforced
-- ✅ `DELETE /products/{id}` — was silently succeeding for missing IDs, now `404`
-
-### New Features
-- 🔍 **Search** — case-insensitive product name search
-- 🏷️ **Category filter** — filter products by category
-- 📄 **Pagination** — paginated product listing
-- 📊 **Stats** — total products, average price, total stock
-- ⚠️ **Low stock alerts** — products below a stock threshold
-- 🗑️ **Bulk delete** — delete multiple products in one request
-- 🎲 **Random generator** — seed 10 random products instantly
-- 🏪 **Expanded model** — added `category`, `stock`, `description` fields
-
-### Frontend & UI
-- 🎨 Modern card-based responsive CSS (no frameworks)
-- 📦 Live stats bar — total products, avg price, total stock, low stock count
-- 🔍 Search bar + category dropdown filter
-- 🃏 Product cards with color-coded stock badges
-- ✏️ Edit modal — JS `fetch` PUT call, no page reload
-- 🗑️ Delete per card with confirmation dialog
-- 📄 Pagination controls
-- 🎲 "Generate Random" button in navbar
-- 🔔 Toast notifications for all actions
+- **Products** — full CRUD, search, category filter, pagination, stats, low-stock alerts, bulk delete, random generator, image upload
+- **Cart** — per-user cart, add/update/remove items
+- **Orders** — checkout (with optional coupon), order history, admin status management
+- **Coupons** — percentage and flat discount codes
+- **Wishlist** — add/remove products per user
+- **Auth** — form login + HTTP Basic, register, ADMIN/USER roles
+- **Admin dashboard** — Chart.js charts (donut + bar)
+- **Rust sidecar** — analytics summary, search proxy, low-stock proxy on `:8081`
+- **Dark mode** — toggle on frontend
+- **Sort + price filter** — on product catalog
+- **Docker** — full stack via `docker-compose`
+- **CI** — GitHub Actions (Java + Rust build)
+- **Actuator** — `/actuator/health`, `/actuator/info`, `/actuator/metrics`
 
 ---
 
@@ -103,107 +157,77 @@ src/
 | Language | Java 17 |
 | Framework | Spring Boot 3.3.0 |
 | Web | Spring Web MVC |
-| Persistence | Spring Data JPA + Hibernate 6 |
-| Security | Spring Security |
-| Database | H2 (in-memory) |
+| Persistence | Spring Data JPA + Hibernate 6 + Flyway |
+| Security | Spring Security (form login + HTTP Basic) |
+| Database | H2 (dev) / PostgreSQL 16 (prod) |
 | Templating | Thymeleaf |
 | Validation | Jakarta Bean Validation |
-| Frontend | HTML + CSS (custom) + Vanilla JS |
-| Testing | JUnit 5 + MockMvc |
+| API Docs | springdoc-openapi (Swagger UI) |
+| Frontend | HTML + CSS (custom) + Vanilla JS + Chart.js |
+| Sidecar | Rust + Axum |
+| Testing | JUnit 5 + MockMvc + Mockito + JaCoCo |
 | Build | Maven |
+| CI | GitHub Actions |
+| Container | Docker + docker-compose |
 
 ---
 
 ## 📌 API Reference
 
-### Endpoints
+All endpoints available under both `/` and `/api/v1/` (e.g. `/products` = `/api/v1/products`).
 
-| Method | Endpoint | Description | Status Codes |
-|--------|----------|-------------|--------------|
-| GET | `/products` | Get all products (paginated) | 200 |
-| GET | `/products/{id}` | Get product by ID | 200, 404 |
-| POST | `/products` | Create product | 201, 400 |
-| PUT | `/products/{id}` | Update product | 200, 400, 404 |
-| DELETE | `/products/{id}` | Delete product | 204, 404 |
-| GET | `/products/search?name=` | Search by name (case-insensitive) | 200 |
-| GET | `/products/category/{category}` | Filter by category | 200 |
-| GET | `/products/stats` | Aggregate stats | 200 |
-| GET | `/products/low-stock?threshold=10` | Products below stock threshold | 200 |
-| DELETE | `/products/bulk` | Bulk delete by ID list | 200 |
-| GET | `/products/random` | Generate & save 10 random products | 200 |
+### Products
 
-### Query Parameters
+| Method | Endpoint | Auth | Notes |
+|--------|----------|------|-------|
+| GET | `/products` | USER+ | `?page=0&size=10` |
+| GET | `/products/{id}` | USER+ | |
+| POST | `/products` | ADMIN | |
+| PUT | `/products/{id}` | ADMIN | |
+| DELETE | `/products/{id}` | ADMIN | |
+| POST | `/products/{id}/image` | ADMIN | multipart, jpg/png/webp, 2MB |
+| GET | `/products/search?name=` | USER+ | case-insensitive |
+| GET | `/products/category/{category}` | USER+ | |
+| GET | `/products/stats` | USER+ | count, avg price, total stock |
+| GET | `/products/low-stock?threshold=10` | USER+ | |
+| DELETE | `/products/bulk` | ADMIN | body: `[1,2,3]` |
+| GET | `/products/random?count=10` | ADMIN | |
 
-| Endpoint | Param | Default | Description |
-|----------|-------|---------|-------------|
-| `GET /products` | `page` | `0` | Page number (0-indexed) |
-| `GET /products` | `size` | `10` | Items per page |
-| `GET /products/low-stock` | `threshold` | `10` | Max stock to flag as low |
+### Cart, Orders, Coupons, Wishlist
 
-### Product Schema
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET/POST/PUT/DELETE | `/cart/**` | USER+ |
+| POST | `/orders/checkout?couponCode=` | USER+ |
+| GET | `/orders`, `/orders/{id}` | USER+ |
+| PUT | `/orders/{id}/status?status=` | ADMIN |
+| POST | `/coupons/validate?code=&orderTotal=` | USER+ |
+| GET/POST/DELETE | `/wishlist/**` | USER+ |
 
-```json
-{
-  "id": 1,
-  "name": "Laptop",
-  "price": 75000.0,
-  "category": "Electronics",
-  "stock": 25,
-  "description": "Gaming laptop"
-}
-```
-
-### Validation Rules
-
-| Field | Rule |
-|-------|------|
-| `name` | Required, alphabets and spaces only (`^[A-Za-z ]+$`) |
-| `price` | Must be > 0 |
-| `category` | Required, not blank |
-| `stock` | Must be >= 0 |
-
-Enforced on both **POST** and **PUT**.
-
-### Categories
-
-`Electronics` · `Clothing` · `Food` · `Accessories` · `Computers` · `Audio` · `Sports` · `Books`
+Full reference → [docs/architecture/api-reference.md](docs/architecture/api-reference.md)
 
 ---
 
 ## 🧪 Tests
 
-**25 tests — all passing** (`mvnw.cmd test`)
+**51 tests — all passing** (`mvnw.cmd test`)
 
-| # | Test | Covers |
-|---|------|--------|
-| 1 | `getAllEmpty` | Paginated empty response |
-| 2 | `createValid` | POST → 201 + correct fields |
-| 3 | `createInvalidName` | Name with digits → 400 |
-| 4 | `createBlankName` | Blank name → 400 |
-| 5 | `createNegativePrice` | Negative price → 400 |
-| 6 | `createMissingCategory` | Empty category → 400 |
-| 7 | `getByIdFound` | GET by ID → 200 |
-| 8 | `getByIdNotFound` | GET missing ID → 404 |
-| 9 | `updateValid` | PUT → 200 + updated fields |
-| 10 | `updateInvalidName` | PUT bad name → 400 |
-| 11 | `updateNotFound` | PUT missing ID → 404 |
-| 12 | `deleteSuccess` | DELETE → 204, then GET → 404 |
-| 13 | `deleteNotFound` | DELETE missing ID → 404 |
-| 14 | `searchByName` | Search returns matching results |
-| 15 | `searchNoResults` | Search returns empty array |
-| 16 | `filterByCategory` | Category filter returns correct items |
-| 17 | `getStats` | Correct count / avg price / total stock |
-| 18 | `getStatsEmpty` | Empty DB → all zeros |
-| 19 | `getLowStock` | Threshold filter returns correct items |
-| 20 | `getLowStockDefaultThreshold` | Default threshold = 10 |
-| 21 | `bulkDelete` | Bulk delete 2 of 3, 1 remains |
-| 22 | `generateRandom` | Returns exactly 10 products |
-| 23 | `pagination` | 15 items → 3 pages of 5 |
-| 24 | `paginationLastPage` | Last page has correct count + `last=true` |
-| 25 | `contextLoads` | Spring context boots cleanly |
+| Suite | Count | Covers |
+|-------|-------|--------|
+| `ProductApiTests` | 48 | Products, security, cart, orders |
+| `UserServiceTest` | 2 | Registration unit tests |
+| `ShopsmartApplicationTests` | 1 | Context load |
+
+Full test matrix → [docs/guides/running-tests.md](docs/guides/running-tests.md)
+
+---
+
+## 📚 Docs
+
+See [docs/index.md](docs/index.md) for the full documentation index.
 
 ---
 
 ## 👨‍💻 Author
 
-Built as a learning project to understand Spring Boot backend development — extended with full REST API, responsive frontend, and comprehensive test coverage.
+Built as a learning project to understand Spring Boot backend development — extended with full commerce features, Rust sidecar, responsive frontend, Docker, CI, and comprehensive test coverage.

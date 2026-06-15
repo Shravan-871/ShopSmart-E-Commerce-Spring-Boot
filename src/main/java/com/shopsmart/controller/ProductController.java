@@ -6,14 +6,21 @@ import com.shopsmart.repository.ProductRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.nio.file.*;
 import java.util.*;
 
 @RestController
-@RequestMapping("/products")
+@RequestMapping({"/products", "/api/v1/products"})
+@Tag(name = "Products", description = "Product catalog CRUD and queries")
 public class ProductController {
 
     private final ProductRepository repo;
@@ -23,6 +30,7 @@ public class ProductController {
     }
 
     @GetMapping
+    @Operation(summary = "List products (paginated)")
     public ResponseEntity<Page<Product>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -50,6 +58,7 @@ public class ProductController {
                     p.setCategory(updated.getCategory());
                     p.setStock(updated.getStock());
                     p.setDescription(updated.getDescription());
+                    if (updated.getImageUrl() != null) p.setImageUrl(updated.getImageUrl());
                     return ResponseEntity.ok(repo.save(p));
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -111,5 +120,35 @@ public class ProductController {
             list.add(repo.save(new Product(name, price, category, stock, "High quality " + name.toLowerCase())));
         }
         return ResponseEntity.ok(list);
+    }
+
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload product image (ADMIN)")
+    public ResponseEntity<?> uploadImage(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
+        String contentType = file.getContentType();
+        if (contentType == null || !(contentType.equals("image/jpeg") || contentType.equals("image/png") || contentType.equals("image/webp")))
+            return ResponseEntity.badRequest().body(Map.of("error", "Only jpg, png, webp allowed"));
+        if (file.getSize() > 2 * 1024 * 1024)
+            return ResponseEntity.badRequest().body(Map.of("error", "Max file size is 2MB"));
+
+        return repo.findById(id).map(p -> {
+            try {
+                Path uploadDir = Paths.get("uploads");
+                Files.createDirectories(uploadDir);
+                String ext = switch (contentType) {
+                    case "image/png" -> ".png";
+                    case "image/webp" -> ".webp";
+                    default -> ".jpg";
+                };
+                String filename = "product-" + id + ext;
+                Files.write(uploadDir.resolve(filename), file.getBytes());
+                p.setImageUrl("/uploads/" + filename);
+                return ResponseEntity.ok(repo.save(p));
+            } catch (IOException e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Upload failed"));
+            }
+        }).orElse(ResponseEntity.notFound().build());
     }
 }

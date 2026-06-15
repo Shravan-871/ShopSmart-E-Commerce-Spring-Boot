@@ -25,6 +25,8 @@ public class Product {
 
     private String description;
 
+    private String imageUrl;
+
     public Product() {}
 
     public Product(String name, double price, String category, int stock, String description) {
@@ -41,6 +43,7 @@ public class Product {
     public String getCategory() { return category; }
     public int getStock() { return stock; }
     public String getDescription() { return description; }
+    public String getImageUrl() { return imageUrl; }
 
     public void setId(Long id) { this.id = id; }
     public void setName(String name) { this.name = name; }
@@ -48,4 +51,5 @@ public class Product {
     public void setCategory(String category) { this.category = category; }
     public void setStock(int stock) { this.stock = stock; }
     public void setDescription(String description) { this.description = description; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }

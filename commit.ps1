@@ -2,11 +2,11 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Message,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$true)]
     [string]$Description = ""
 )
 
-$repo = "c:\Users\shett\Music\ShopSmart-E-Commerce-Spring-Boot"
+$repo = "C:\Users\shett\3D Objects\Github\ShopSmart-E-Commerce-Spring-Boot"
 Set-Location $repo
 
 # Stage all changes

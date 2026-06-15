@@ -1,11 +1,13 @@
 package com.shopsmart.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.*;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.ConstraintViolationException;
+import java.time.Instant;
 import java.util.*;
 
 @RestControllerAdvice
@@ -26,13 +28,14 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(AuthorizationDeniedException.class)
-    public ResponseEntity<Map<String, String>> handleAccessDenied(AuthorizationDeniedException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Access Denied"));
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(AuthorizationDeniedException ex, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiErrorResponse(Instant.now(), 403, "Access Denied", req.getRequestURI()));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, String>> handleGeneric(Exception ex) {
+    public ResponseEntity<ApiErrorResponse> handleGeneric(Exception ex, HttpServletRequest req) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", ex.getMessage()));
+                .body(new ApiErrorResponse(Instant.now(), 500, ex.getMessage(), req.getRequestURI()));
     }
 }
