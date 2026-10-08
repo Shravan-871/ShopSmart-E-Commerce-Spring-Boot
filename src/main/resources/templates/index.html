@@ -149,12 +149,15 @@
              th:data-price="${p.price}"
              th:data-category="${p.category}"
              th:data-stock="${p.stock}"
-             th:data-desc="${p.description != null ? p.description : ''}">
+             th:data-desc="${p.description != null ? p.description : ''}"
+             th:data-image="${p.imageUrl != null ? p.imageUrl : ''}">
 
             <!-- Image area (clickable for detail) -->
             <div class="product-card-image view-btn">
                 <span class="category-badge" th:text="${p.category}"></span>
                 <span class="product-id" th:text="'#' + ${p.id}"></span>
+                <button type="button" class="wishlist-btn" th:data-product-id="${p.id}"
+                        title="Add to wishlist" aria-label="Add to wishlist">❤️</button>
             </div>
 
             <!-- Body (clickable for detail) -->
@@ -166,7 +169,7 @@
 
             <!-- Footer -->
             <div class="product-card-footer">
-                <div>
+                <div class="stock-wrap">
                     <span th:if="${p.stock > 10}"  class="stock-badge stock-ok">• In Stock (<span th:text="${p.stock}"></span>)</span>
                     <span th:if="${p.stock > 0 and p.stock <= 10}" class="stock-badge stock-low">• Low (<span th:text="${p.stock}"></span>)</span>
                     <span th:if="${p.stock == 0}"  class="stock-badge stock-zero">• Out of Stock</span>
@@ -174,9 +177,9 @@
                 <div class="actions">
                     <button class="btn btn-outline btn-sm cart-btn" th:data-product-id="${p.id}"
                             th:disabled="${p.stock == 0}">🛒</button>
-                    <span sec:authorize="hasRole('ADMIN')">
+                    <span class="admin-actions" sec:authorize="hasRole('ADMIN')">
                         <button class="btn btn-outline btn-sm edit-btn">✏️</button>
-                        <form th:action="'/ui/products/delete/' + ${p.id}" method="post" style="display:inline"
+                        <form th:action="'/ui/products/delete/' + ${p.id}" method="post"
                               onsubmit="return confirm('Delete this product?')">
                             <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
                         </form>
@@ -264,6 +267,10 @@
                 <label>Description</label>
                 <input id="editDesc" placeholder="Description"/>
             </div>
+            <div class="form-group" style="grid-column:1/-1">
+                <label>Product Image (jpg/png/webp, max 2MB)</label>
+                <input id="editImage" type="file" accept="image/jpeg,image/png,image/webp"/>
+            </div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
@@ -289,17 +296,32 @@ const categoryIcons = {
 };
 const defaultIcon = `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="16" width="48" height="48" rx="8" fill="white" fill-opacity="0.4"/><circle cx="40" cy="36" r="10" fill="white" fill-opacity="0.5"/><path d="M20 64 Q40 48 60 64" fill="white" fill-opacity="0.3"/></svg>`;
 
-// Wire view (detail) buttons + inject category SVG into card image
-document.querySelectorAll('.product-card').forEach(card => {
-    // inject SVG into image area
-    const img = card.querySelector('.product-card-image');
-    if (img) {
-        const svg = categoryIcons[card.dataset.category] || defaultIcon;
-        // insert before first child so badges stay on top
+function fillProductImage(container, imageUrl, category) {
+    if (!container) return;
+    container.querySelectorAll('img, svg').forEach(el => el.remove());
+    const showSvg = () => {
+        container.classList.remove('has-photo');
+        container.querySelectorAll('img, svg').forEach(el => el.remove());
         const div = document.createElement('div');
-        div.innerHTML = svg;
-        img.insertBefore(div.firstChild, img.firstChild);
+        div.innerHTML = categoryIcons[category] || defaultIcon;
+        container.insertBefore(div.firstChild, container.firstChild);
+    };
+    if (imageUrl) {
+        container.classList.add('has-photo');
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = '';
+        img.onerror = showSvg;
+        container.insertBefore(img, container.firstChild);
+    } else {
+        showSvg();
     }
+}
+
+// Wire view (detail) buttons + inject real image or category SVG into card image
+document.querySelectorAll('.product-card').forEach(card => {
+    const area = card.querySelector('.product-card-image');
+    fillProductImage(area, card.dataset.image, card.dataset.category);
 });
 
 document.querySelectorAll('.view-btn').forEach(el => {
@@ -318,8 +340,7 @@ function openDetail(d) {
     document.getElementById('detailStock').textContent =
         stock === 0 ? 'Out of Stock' : stock <= 10 ? stock + ' units (Low Stock ⚠️)' : stock + ' units';
     document.getElementById('detailDesc').textContent = d.desc || 'No description';
-    const svg = categoryIcons[d.category] || defaultIcon;
-    document.getElementById('detailImage').innerHTML = svg;
+    fillProductImage(document.getElementById('detailImage'), d.image, d.category);
     document.getElementById('detailModal').classList.add('open');
 }
 
@@ -351,6 +372,7 @@ function openEdit(id, name, price, category, stock, desc) {
     document.getElementById('editCategory').value = category;
     document.getElementById('editStock').value = stock;
     document.getElementById('editDesc').value = desc;
+    document.getElementById('editImage').value = '';
     document.getElementById('editModal').classList.add('open');
 }
 
@@ -365,6 +387,8 @@ function saveEdit() {
     const category = document.getElementById('editCategory').value;
     const stock = parseInt(document.getElementById('editStock').value);
     const description = document.getElementById('editDesc').value;
+    const fileInput = document.getElementById('editImage');
+    const file = fileInput.files[0];
 
     if (!name.match(/^[A-Za-z ]+$/)) {
         showToast('Name must contain only alphabets', 'error');
@@ -375,21 +399,33 @@ function saveEdit() {
         return;
     }
 
-    fetch('/products/' + editingId, {
+    const productId = editingId;
+    fetch('/products/' + productId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, price, category, stock, description })
     })
     .then(r => {
-        if (r.ok) {
-            showToast('Product updated successfully!', 'success');
-            closeEdit();
-            setTimeout(() => location.reload(), 800);
-        } else {
-            r.json().then(e => showToast(JSON.stringify(e), 'error'));
+        if (!r.ok) {
+            return r.json().then(e => { throw new Error(JSON.stringify(e)); });
         }
+        if (!file) return null;
+        const formData = new FormData();
+        formData.append('file', file);
+        return fetch('/products/' + productId + '/image', { method: 'POST', body: formData })
+            .then(async ir => {
+                if (!ir.ok) {
+                    const err = await ir.json().catch(() => ({}));
+                    throw new Error(err.error || 'Image upload failed');
+                }
+            });
     })
-    .catch(() => showToast('Update failed', 'error'));
+    .then(() => {
+        showToast(file ? 'Product and image updated!' : 'Product updated successfully!', 'success');
+        closeEdit();
+        setTimeout(() => location.reload(), 800);
+    })
+    .catch(err => showToast(err.message || 'Update failed', 'error'));
 }
 
 function deleteAll() {
@@ -438,6 +474,21 @@ document.querySelectorAll('.cart-btn').forEach(btn => {
         fetch('/cart/add?productId=' + productId + '&quantity=1', { method: 'POST' })
             .then(r => r.ok ? showToast('Added to cart! 🛒', 'success') : showToast('Failed to add to cart', 'error'))
             .catch(() => showToast('Failed to add to cart', 'error'));
+    });
+});
+
+// Wire wishlist buttons
+document.querySelectorAll('.wishlist-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const productId = this.dataset.productId;
+        fetch('/wishlist/add/' + productId, { method: 'POST' })
+            .then(async r => {
+                const data = await r.json().catch(() => ({}));
+                if (r.ok) showToast('Added to wishlist!', 'success');
+                else showToast(data.error || 'Failed to add to wishlist', 'error');
+            })
+            .catch(() => showToast('Failed to add to wishlist', 'error'));
     });
 });
 

@@ -35,6 +35,13 @@
 <div id="toast"></div>
 
 <script>
+let appliedCoupon = null;
+let cartSubtotal = 0;
+
+function clearCoupon() {
+    appliedCoupon = null;
+}
+
 function loadCart() {
     fetch('/cart')
         .then(r => r.json())
@@ -46,10 +53,14 @@ function renderCart(cart) {
     const items = cart.items || [];
     const c = document.getElementById('cartContent');
     if (!items.length) {
+        clearCoupon();
+        cartSubtotal = 0;
         c.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>Your cart is empty. <a href="/">Browse products</a></p></div>';
         return;
     }
-    const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+    cartSubtotal = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+    const discount = appliedCoupon ? appliedCoupon.discount : 0;
+    const finalTotal = appliedCoupon ? appliedCoupon.finalTotal : cartSubtotal;
     c.innerHTML = `
         <table style="width:100%;border-collapse:collapse;margin-bottom:1.5rem;">
             <thead>
@@ -78,15 +89,55 @@ function renderCart(cart) {
                 </tr>`).join('')}
             </tbody>
         </table>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+            <input id="couponCode" type="text" placeholder="Coupon code"
+                   value="${appliedCoupon ? appliedCoupon.code : ''}"
+                   style="flex:1;min-width:140px;padding:.45rem .6rem;border:1px solid #ddd;border-radius:6px;"/>
+            <button class="btn btn-outline" type="button" onclick="applyCoupon()">Apply</button>
+            ${appliedCoupon ? '<button class="btn btn-outline" type="button" onclick="removeCoupon()">Remove</button>' : ''}
+        </div>
+        <div id="couponPreview" style="margin-bottom:1rem;${appliedCoupon ? '' : 'display:none;'}">
+            ${appliedCoupon ? `<small style="color:#27ae60;">Coupon <strong>${appliedCoupon.code}</strong> applied — save &#8377;${discount.toLocaleString('en-IN',{minimumFractionDigits:2})}</small>` : ''}
+        </div>
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;">
             <div style="font-size:1.2rem;font-weight:700;color:#6c63ff;">
-                Total: &#8377;${total.toLocaleString('en-IN',{minimumFractionDigits:2})}
+                ${appliedCoupon
+                    ? `Subtotal: &#8377;${cartSubtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}<br>
+                       <span style="font-size:1rem;">Total: &#8377;${finalTotal.toLocaleString('en-IN',{minimumFractionDigits:2})}</span>`
+                    : `Total: &#8377;${cartSubtotal.toLocaleString('en-IN',{minimumFractionDigits:2})}`}
             </div>
             <div style="display:flex;gap:.75rem;">
                 <button class="btn btn-outline" onclick="clearCart()">Clear Cart</button>
                 <button class="btn btn-primary" onclick="checkout()">&#9989; Checkout</button>
             </div>
         </div>`;
+}
+
+function applyCoupon() {
+    const code = (document.getElementById('couponCode').value || '').trim();
+    if (!code) {
+        showToast('Enter a coupon code', 'error');
+        return;
+    }
+    if (cartSubtotal <= 0) {
+        showToast('Cart is empty', 'error');
+        return;
+    }
+    fetch('/coupons/validate?code=' + encodeURIComponent(code) + '&orderTotal=' + cartSubtotal, { method: 'POST' })
+        .then(async r => {
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error || 'Invalid coupon');
+            appliedCoupon = data;
+            showToast('Coupon applied!', 'success');
+            loadCart();
+        })
+        .catch(err => showToast(err.message || 'Invalid coupon', 'error'));
+}
+
+function removeCoupon() {
+    clearCoupon();
+    showToast('Coupon removed', 'success');
+    loadCart();
 }
 
 function updateQty(itemId, qty, maxStock, input) {
@@ -97,6 +148,7 @@ function updateQty(itemId, qty, maxStock, input) {
         input.value = maxStock;
         qty = maxStock;
     }
+    clearCoupon();
     fetch('/cart/update/' + itemId + '?quantity=' + qty, { method: 'PUT' })
         .then(r => r.json())
         .then(data => {
@@ -107,6 +159,7 @@ function updateQty(itemId, qty, maxStock, input) {
 }
 
 function removeItem(itemId) {
+    clearCoupon();
     fetch('/cart/remove/' + itemId, { method: 'DELETE' })
         .then(r => r.ok ? (showToast('Item removed', 'success'), loadCart()) : showToast('Failed', 'error'))
         .catch(() => showToast('Failed', 'error'));
@@ -114,6 +167,7 @@ function removeItem(itemId) {
 
 function clearCart() {
     if (!confirm('Clear your entire cart?')) return;
+    clearCoupon();
     fetch('/cart/clear', { method: 'DELETE' })
         .then(r => r.ok ? (showToast('Cart cleared', 'success'), loadCart()) : showToast('Failed', 'error'))
         .catch(() => showToast('Failed', 'error'));
@@ -121,11 +175,16 @@ function clearCart() {
 
 function checkout() {
     if (!confirm('Place this order?')) return;
-    fetch('/orders/checkout', { method: 'POST' })
+    let url = '/orders/checkout';
+    if (appliedCoupon && appliedCoupon.code) {
+        url += '?couponCode=' + encodeURIComponent(appliedCoupon.code);
+    }
+    fetch(url, { method: 'POST' })
         .then(r => r.json())
         .then(data => {
             if (data.id) {
                 showToast('Order #' + data.id + ' placed!', 'success');
+                clearCoupon();
                 setTimeout(() => window.location.href = '/my-orders/' + data.id, 1000);
             } else {
                 showToast(data.error || 'Checkout failed', 'error');

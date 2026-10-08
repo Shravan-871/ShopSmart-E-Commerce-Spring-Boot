@@ -13,6 +13,6 @@
 | Doc | Description |
 |-----|-------------|
 | [setup.md](guides/setup.md) | Build, run locally, Docker, profiles, default accounts, mail config |
-| [running-tests.md](guides/running-tests.md) | All 51 tests, suites, JaCoCo coverage, CI |
+| [running-tests.md](guides/running-tests.md) | All 61 tests, suites, JaCoCo coverage, CI |
 | [troubleshooting.md](guides/troubleshooting.md) | Port conflicts, H2, auth errors, Rust, Docker, Flyway, image upload |
-| [roadmap.md](guides/roadmap.md) | Phases 9–13 planned features, decision log |
+| [roadmap.md](guides/roadmap.md) | Phases 10–13 planned features, decision log |

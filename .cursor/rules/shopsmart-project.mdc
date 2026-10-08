@@ -14,7 +14,7 @@ Spring Boot 3.3 + Rust sidecar e-commerce learning project.
 - Rust Axum sidecar: `rust-service/` on **:8081**
 - **Main app:** `mvnw.cmd spring-boot:run` → **http://localhost:8080** (not port 80)
 - **Rust:** `cd rust-service && cargo run` → http://localhost:8081
-- Test: `mvnw.cmd test` (51 tests)
+- Test: `mvnw.cmd test` (61 tests)
 
 ## Architecture
 
@@ -38,12 +38,12 @@ docs/
 │   └── api-reference.md             ← full endpoint table for all controllers
 └── guides/
     ├── setup.md                     ← build, run, Docker, accounts, mail config
-    ├── running-tests.md             ← 51 tests, suites, JaCoCo, CI
+    ├── running-tests.md             ← 61 tests, suites, JaCoCo, CI
     ├── troubleshooting.md           ← port conflicts, H2, auth, Rust, Docker, Flyway
-    └── roadmap.md                  ← Phases 9–13 planned features, decision log
+    └── roadmap.md                  ← Phases 10–13 planned features, decision log
 ```
 
 ## Active work
 
-**Phase 9** (wire-up): images in UI → coupon on cart → wishlist button → HTML email → tests → README sync.  
-See `docs/guides/roadmap.md` Phase 9 steps.
+**Phase 10** (next): on-sale products → dashboard line chart → admin orders UI → product reviews.  
+See `docs/guides/roadmap.md` Phase 10 steps.
