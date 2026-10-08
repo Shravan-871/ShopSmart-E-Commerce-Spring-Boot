@@ -114,7 +114,9 @@ src/
 │       ├── db/migration/      ← Flyway V1–V6
 │       ├── templates/         ← index, cart, orders, order-detail, login,
 │       │                         register, dashboard, wishlist, email/
-│       ├── static/style.css
+│       ├── static/
+│       │   ├── style.css              ← theme + Bedimcode-inspired navbar
+│       │   └── nav.js                 ← dropdown, hamburger, dark-mode bootstrap
 │       ├── application.properties
 │       ├── application-dev.properties   ← H2
 │       └── application-prod.properties  ← PostgreSQL
@@ -143,8 +145,9 @@ docs/
 - **Wishlist** — add/remove from product cards and wishlist page
 - **Auth** — form login + HTTP Basic, register, ADMIN/USER roles
 - **Admin dashboard** — Chart.js charts (donut + bar)
+- **Navbar** — Bedimcode-inspired hover links; unified control pills (links, theme, username, Logout); admin gear icon (`⚙️`) left of Logout opens dropdown (Dashboard, DB, Random, Delete All on home); hamburger under ~960px; shared `nav.js`
 - **Rust sidecar** — analytics summary, search proxy, low-stock proxy on `:8081`
-- **Dark mode** — toggle on frontend
+- **Dark mode** — toggle on all main pages; navbar controls share the same light/dark CSS tokens
 - **Sort + price filter** — on product catalog
 - **Docker** — full stack via `docker-compose`
 - **CI** — GitHub Actions (Java + Rust build)

@@ -21,9 +21,10 @@ Spring Boot 3.3 + Rust sidecar e-commerce learning project.
 | Layer | Location |
 |-------|----------|
 | REST + UI | `controller/*`, `templates/*.html` |
+| Static UI | `static/style.css`, `static/nav.js` (unified nav pills, ⚙️ admin dropdown, hamburger, dark mode) |
 | Rust analytics | `rust-service/` (proxies Spring via Basic auth) |
 | Persistence | `repository/`, `model/`, `db/migration/` |
-| Security | `SecurityConfig` — form login + HTTP Basic, ADMIN/USER |
+| Security | `SecurityConfig` — form login + HTTP Basic, ADMIN/USER; permits `/style.css`, `/nav.js` |
 
 Business logic mostly in controllers. CSRF disabled.
 

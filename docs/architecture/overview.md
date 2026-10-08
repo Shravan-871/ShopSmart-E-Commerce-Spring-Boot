@@ -100,6 +100,19 @@ Default seeded accounts (dev only):
 | 7 | `UserServiceTest` (Mockito), JaCoCo on `mvn verify` |
 | 8 | `Dockerfile`, `docker-compose.yml`, Actuator, GitHub Actions CI |
 | 9 | Product images in UI + edit upload, cart coupon apply, wishlist heart, HTML order email + low-stock trigger, commerce/email tests |
+| 9+ | Navbar polish: icon admin dropdown, unified pills, mobile hamburger, light/dark nav tokens (`style.css` + `nav.js`) |
+
+---
+
+## UI / Navbar
+
+| Piece | Location | Notes |
+|-------|----------|-------|
+| Styles | `static/style.css` | Shared `.nav-link` / `.nav-btn` / `.theme-toggle` / `.nav-username` / `.nav-dropdown-btn` height & border; `--nav-*` for light + dark |
+| Behavior | `static/nav.js` | Admin dropdown, hamburger drawer (&lt;960px), Escape/outside close, dark-mode bootstrap |
+| Templates | `index`, `cart`, `wishlist`, `orders`, `order-detail`, `dashboard` | Shared order: links → theme → username → admin gear → Logout |
+
+Admin tools are behind an icon-only **⚙️** control (left of Logout), not labeled “Admin” text. Home dropdown also includes Random / Delete All. Username is shown once (no separate ADMIN/USER badge).
 
 ---
 

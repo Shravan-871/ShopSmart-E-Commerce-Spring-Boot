@@ -1,18 +1,37 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Wishlist — ShopSmart</title>
     <link rel="stylesheet" th:href="@{/style.css}"/>
+    <script th:src="@{/nav.js}" defer></script>
 </head>
 <body>
 <nav class="navbar">
     <a href="/" class="brand">🛒 ShopSmart</a>
-    <div class="nav-links">
-        <a href="/" class="nav-btn">Products</a>
-        <a href="/cart-page" class="nav-btn">🛒 Cart</a>
-        <a href="/my-orders" class="nav-btn">📋 My Orders</a>
+    <button type="button" class="nav-toggle" aria-label="Open menu"><span></span><span></span><span></span></button>
+    <div class="nav-menu">
+        <div class="nav-links">
+            <a href="/" class="nav-link">🏠 Products</a>
+            <a href="/cart-page" class="nav-link">🛒 Cart</a>
+            <a href="/my-orders" class="nav-link">📋 Orders</a>
+            <button type="button" class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
+            <span class="nav-user">
+                <span class="nav-username" sec:authentication="name">user</span>
+            </span>
+            <div class="nav-dropdown" sec:authorize="hasRole('ADMIN')">
+                <button type="button" class="nav-dropdown-btn" title="Admin" aria-label="Admin menu">⚙️</button>
+                <div class="nav-dropdown-menu">
+                    <a href="/admin/dashboard">📊 Dashboard</a>
+                    <a href="/h2-console" target="_blank" rel="noopener">🗄️ DB Console</a>
+                </div>
+            </div>
+            <form method="post" action="/logout" class="nav-logout">
+                <button type="submit" class="nav-btn">Logout</button>
+            </form>
+        </div>
     </div>
 </nav>
 <div class="container">

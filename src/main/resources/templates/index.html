@@ -6,12 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>ShopSmart</title>
     <link rel="stylesheet" th:href="@{/style.css}"/>
+    <script th:src="@{/nav.js}" defer></script>
 </head>
 <body>
 
 <!-- Navbar -->
 <nav class="navbar">
     <a href="/" class="brand">🛒 ShopSmart</a>
+    <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+    </button>
     <form method="get" action="/" class="nav-search">
         <div class="search-box">
             <span class="search-icon">🔍</span>
@@ -27,27 +31,29 @@
         <button type="submit" class="nav-btn">Filter</button>
         <a href="/" class="nav-btn">Clear</a>
     </form>
-    <div class="nav-links">
-        <!-- Admin-only actions -->
-        <span sec:authorize="hasRole('ADMIN')">
-            <a href="/admin/dashboard" class="nav-btn">📊 Dashboard</a>
-            <a href="/h2-console" target="_blank" class="nav-btn">🗄️ DB</a>
-            <button class="nav-btn nav-btn-success" onclick="loadRandom()">🎲 Random</button>
-            <button class="nav-btn nav-btn-danger" onclick="deleteAll()">🗑️ Delete All</button>
-        </span>
-        <!-- User info + logout -->
-        <span class="nav-user">
-            <a href="/cart-page" class="nav-btn">🛒 Cart</a>
-            <a href="/my-orders" class="nav-btn">📋 My Orders</a>
-            <a href="/wishlist-page" class="nav-btn">❤️ Wishlist</a>
+    <div class="nav-menu" id="navMenu">
+        <div class="nav-links">
+            <a href="/cart-page" class="nav-link">🛒 Cart</a>
+            <a href="/my-orders" class="nav-link">📋 Orders</a>
+            <a href="/wishlist-page" class="nav-link">❤️ Wishlist</a>
             <button type="button" class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
-            <span class="nav-username" sec:authentication="name">user</span>
-            <span class="role-badge" sec:authorize="hasRole('ADMIN')">ADMIN</span>
-            <span class="role-badge role-user" sec:authorize="hasRole('USER')">USER</span>
-        </span>
-        <form method="post" action="/logout" style="display:inline">
-            <button type="submit" class="nav-btn nav-btn-danger">Logout</button>
-        </form>
+            <span class="nav-user">
+                <span class="nav-username" sec:authentication="name">user</span>
+            </span>
+            <div class="nav-dropdown" sec:authorize="hasRole('ADMIN')">
+                <button type="button" class="nav-dropdown-btn" title="Admin" aria-label="Admin menu">⚙️</button>
+                <div class="nav-dropdown-menu">
+                    <a href="/admin/dashboard">📊 Dashboard</a>
+                    <a href="/h2-console" target="_blank" rel="noopener">🗄️ DB Console</a>
+                    <div class="divider"></div>
+                    <button type="button" onclick="loadRandom()">🎲 Random products</button>
+                    <button type="button" class="danger" onclick="deleteAll()">🗑️ Delete all</button>
+                </div>
+            </div>
+            <form method="post" action="/logout" class="nav-logout">
+                <button type="submit" class="nav-btn">Logout</button>
+            </form>
+        </div>
     </div>
 </nav>
 
@@ -500,11 +506,6 @@ document.getElementById('detailModal').addEventListener('click', function(e) {
     if (e.target === this) closeDetail();
 });
 
-function toggleDarkMode() {
-    document.body.classList.toggle('dark-mode');
-    localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-}
-if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
 </script>
 
 </body>

@@ -10,6 +10,7 @@
 | 9.4 | HTML email + low-stock alert trigger | Done |
 | 9.5 | Commerce + email tests | Done |
 | 9.6 | Docs sync | Done |
+| 9+ | Navbar redesign — admin dropdown, hamburger, light/dark nav | Done |
 
 ---
 
@@ -64,6 +65,8 @@
 
 | Date | Decision |
 |------|----------|
+| 2026-10-08 | Navbar: Bedimcode-inspired hover + mobile drawer; admin tools via icon-only gear left of Logout; unified pills in light/dark |
+| 2026-10-08 | Navbar shows username only (no duplicate ADMIN/USER badge next to name) |
 | 2026-10-08 | Phase 9 shipped; Phase 10 is next (sales, reviews, admin orders) |
 | 2026-06-13 | Phases 1–8 shipped; Phase 9 focuses on UI wire-up before new domains |
 | 2026-06-13 | Rust MVP proxies Spring (not direct DB) in dev — simpler with H2 |

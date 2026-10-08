@@ -35,6 +35,7 @@
 | Models | `model/` (Product, User, Cart, Order, Coupon, WishlistItem…) |
 | Config | `config/` (Security, CORS, RateLimit, WebConfig, OpenApi, DataInitializer) |
 | Templates | `resources/templates/` (index, cart, orders, login, register, dashboard, wishlist, email/) |
+| Static UI | `resources/static/style.css`, `nav.js` (unified nav pills, ⚙️ admin dropdown, hamburger, dark mode) |
 | Migrations | `resources/db/migration/` V1–V6 |
 | Rust sidecar | `rust-service/` — proxies Spring via HTTP Basic |
 
