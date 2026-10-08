@@ -153,3 +153,17 @@ spring.datasource.driver-class-name=org.h2.Driver
 - Max size: 2MB
 - Must be multipart form data
 - Requires `ADMIN` role
+
+---
+
+## Navbar looks old / Admin buttons still overflow
+
+Thymeleaf templates and static files are loaded from the classpath. Without DevTools, changes to `templates/*.html`, `style.css`, or `nav.js` need an app restart (or re-copy into `target/classes` and restart).
+
+Also confirm:
+
+- Browser hard-refresh (Ctrl+F5) so cached `style.css` / `nav.js` are reloaded
+- `/nav.js` is allowed in `SecurityConfig` (public static)
+- Admin tools appear under the **⚙️** icon (left of Logout), not as separate top-bar buttons
+- Username and Logout use the same pill style as other nav controls
+- Dark mode uses `body.dark-mode` + `--nav-*` CSS variables from `nav.js` / `style.css`

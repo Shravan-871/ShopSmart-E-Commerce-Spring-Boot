@@ -70,6 +70,9 @@ public class OrderController {
             order.getItems().add(new OrderItem(order, p.getName(), p.getPrice(), p.getCategory(), item.getQuantity()));
             p.setStock(Math.max(0, p.getStock() - item.getQuantity()));
             productRepo.save(p);
+            if (p.getStock() <= EmailService.lowStockThreshold()) {
+                emailService.sendLowStockAlert(p.getName(), p.getStock());
+            }
         }
         orderRepo.save(order);
         cart.getItems().clear();

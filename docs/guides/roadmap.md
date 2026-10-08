@@ -1,22 +1,20 @@
 # Roadmap
 
-## Phase 9 — Wire-up & Polish (Next)
+## Phase 9 — Wire-up & Polish (Done)
 
-Goal: Connect backend features to the UI and add missing tests.  
-Do steps 9.1 → 9.6 sequentially. Verify after each step.
-
-| Step | Feature | Files |
-|------|---------|-------|
-| 9.1 | Product images in UI — show real image on cards/modals, file input in edit modal | `templates/index.html`, `static/style.css` |
-| 9.2 | Coupon input on cart page, preview via `/coupons/validate`, pass on checkout | `templates/cart.html` |
-| 9.3 | ❤️ button on product cards → `POST /wishlist/add/{id}`, toast feedback | `templates/index.html`, `templates/wishlist.html` |
-| 9.4 | HTML email template, `MimeMessage` in `EmailService`, low-stock alert trigger | `EmailService.java`, `templates/email/order-confirmation.html` |
-| 9.5 | Tests: coupon checkout, wishlist CRUD, image upload, email mock | `ProductApiTests.java` or `CommerceApiTests.java`, `EmailServiceTest.java` |
-| 9.6 | Docs sync: README, PROJECT_STATUS, rules | `README.md`, `.amazonq/rules/` |
+| Step | Feature | Status |
+|------|---------|--------|
+| 9.1 | Product images in UI + edit upload | Done |
+| 9.2 | Coupon input on cart + checkout param | Done |
+| 9.3 | Wishlist heart on product cards | Done |
+| 9.4 | HTML email + low-stock alert trigger | Done |
+| 9.5 | Commerce + email tests | Done |
+| 9.6 | Docs sync | Done |
+| 9+ | Navbar redesign — admin dropdown, hamburger, light/dark nav | Done |
 
 ---
 
-## Phase 10 — Commerce & Admin depth
+## Phase 10 — Commerce & Admin depth (Next)
 
 | Step | Feature | Files (planned) |
 |------|---------|-----------------|
@@ -67,6 +65,9 @@ Do steps 9.1 → 9.6 sequentially. Verify after each step.
 
 | Date | Decision |
 |------|----------|
+| 2026-10-08 | Navbar: Bedimcode-inspired hover + mobile drawer; admin tools via icon-only gear left of Logout; unified pills in light/dark |
+| 2026-10-08 | Navbar shows username only (no duplicate ADMIN/USER badge next to name) |
+| 2026-10-08 | Phase 9 shipped; Phase 10 is next (sales, reviews, admin orders) |
 | 2026-06-13 | Phases 1–8 shipped; Phase 9 focuses on UI wire-up before new domains |
 | 2026-06-13 | Rust MVP proxies Spring (not direct DB) in dev — simpler with H2 |
 | 2026-06-13 | Dual API paths: `/products` and `/api/v1/products` for backward compat |

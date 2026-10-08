@@ -1,38 +1,150 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Wishlist — ShopSmart</title>
     <link rel="stylesheet" th:href="@{/style.css}"/>
+    <script th:src="@{/nav.js}" defer></script>
 </head>
 <body>
 <nav class="navbar">
     <a href="/" class="brand">🛒 ShopSmart</a>
-    <div class="nav-links">
-        <a href="/" class="nav-btn">Products</a>
-        <a href="/cart-page" class="nav-btn">🛒 Cart</a>
+    <button type="button" class="nav-toggle" aria-label="Open menu"><span></span><span></span><span></span></button>
+    <div class="nav-menu">
+        <div class="nav-links">
+            <a href="/" class="nav-link">🏠 Products</a>
+            <a href="/cart-page" class="nav-link">🛒 Cart</a>
+            <a href="/my-orders" class="nav-link">📋 Orders</a>
+            <button type="button" class="theme-toggle" onclick="toggleDarkMode()" title="Toggle dark mode">🌙</button>
+            <span class="nav-user">
+                <span class="nav-username" sec:authentication="name">user</span>
+            </span>
+            <div class="nav-dropdown" sec:authorize="hasRole('ADMIN')">
+                <button type="button" class="nav-dropdown-btn" title="Admin" aria-label="Admin menu">⚙️</button>
+                <div class="nav-dropdown-menu">
+                    <a href="/admin/dashboard">📊 Dashboard</a>
+                    <a href="/h2-console" target="_blank" rel="noopener">🗄️ DB Console</a>
+                </div>
+            </div>
+            <form method="post" action="/logout" class="nav-logout">
+                <button type="submit" class="nav-btn">Logout</button>
+            </form>
+        </div>
     </div>
 </nav>
 <div class="container">
     <h1 class="page-title">❤️ My Wishlist</h1>
     <div class="products-grid" th:if="${!#lists.isEmpty(items)}">
-        <div th:each="item : ${items}" class="product-card">
+        <div th:each="item : ${items}" class="product-card"
+             th:data-category="${item.product.category}"
+             th:data-image="${item.product.imageUrl != null ? item.product.imageUrl : ''}">
+            <div class="product-card-image">
+                <span class="category-badge" th:text="${item.product.category}"></span>
+                <span class="product-id" th:text="'#' + ${item.product.id}"></span>
+            </div>
             <div class="product-card-body">
                 <div class="product-name" th:text="${item.product.name}">Product</div>
-                <div class="product-price" th:text="'₹' + ${#numbers.formatDecimal(item.product.price, 1, 0)}">₹0</div>
-                <button class="btn btn-danger" th:onclick="'removeWish(' + ${item.product.id} + ')'">Remove</button>
+                <div class="product-price"
+                     th:text="'₹' + ${#numbers.formatDecimal(item.product.price, 1, 2)}">₹0</div>
+                <div class="product-desc"
+                     th:text="${item.product.description != null and !#strings.isEmpty(item.product.description)
+                               ? item.product.description : 'No description'}">Description</div>
+            </div>
+            <div class="product-card-footer">
+                <div class="stock-wrap">
+                    <span th:if="${item.product.stock > 10}" class="stock-badge stock-ok">
+                        • In Stock (<span th:text="${item.product.stock}"></span>)
+                    </span>
+                    <span th:if="${item.product.stock > 0 and item.product.stock <= 10}" class="stock-badge stock-low">
+                        • Low (<span th:text="${item.product.stock}"></span>)
+                    </span>
+                    <span th:if="${item.product.stock == 0}" class="stock-badge stock-zero">• Out of Stock</span>
+                </div>
+                <div class="actions">
+                    <button type="button" class="btn btn-outline btn-sm"
+                            th:disabled="${item.product.stock == 0}"
+                            th:onclick="'addToCart(' + ${item.product.id} + ')'">🛒</button>
+                    <button type="button" class="btn btn-danger btn-sm"
+                            th:onclick="'removeWish(' + ${item.product.id} + ')'">Remove</button>
+                </div>
             </div>
         </div>
     </div>
     <div th:if="${#lists.isEmpty(items)}" class="empty-state">
         <div class="icon">❤️</div>
-        <p>Your wishlist is empty.</p>
+        <p>Your wishlist is empty. <a href="/">Browse products</a></p>
     </div>
 </div>
+<div id="toast"></div>
 <script>
+const categoryIcons = {
+  'Electronics': `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="18" width="60" height="38" rx="4" fill="white" fill-opacity="0.3"/><rect x="14" y="22" width="52" height="30" rx="2" fill="white" fill-opacity="0.5"/><rect x="28" y="56" width="24" height="4" rx="2" fill="white" fill-opacity="0.4"/><rect x="22" y="60" width="36" height="3" rx="1.5" fill="white" fill-opacity="0.3"/></svg>`,
+  'Computers':  `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="14" width="64" height="42" rx="4" fill="white" fill-opacity="0.3"/><rect x="12" y="18" width="56" height="34" rx="2" fill="white" fill-opacity="0.5"/><rect x="24" y="56" width="32" height="4" rx="2" fill="white" fill-opacity="0.4"/><rect x="18" y="60" width="44" height="3" rx="1.5" fill="white" fill-opacity="0.3"/></svg>`,
+  'Audio':      `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="22" fill="white" fill-opacity="0.3"/><circle cx="40" cy="40" r="14" fill="white" fill-opacity="0.4"/><circle cx="40" cy="40" r="6" fill="white" fill-opacity="0.6"/><rect x="38" y="10" width="4" height="12" rx="2" fill="white" fill-opacity="0.5"/><rect x="38" y="58" width="4" height="12" rx="2" fill="white" fill-opacity="0.5"/></svg>`,
+  'Accessories':`<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="24" stroke="white" stroke-width="5" fill="none" stroke-opacity="0.5"/><circle cx="40" cy="40" r="14" stroke="white" stroke-width="4" fill="none" stroke-opacity="0.4"/><circle cx="40" cy="40" r="4" fill="white" fill-opacity="0.7"/><line x1="40" y1="16" x2="40" y2="26" stroke="white" stroke-width="3" stroke-opacity="0.6"/></svg>`,
+  'Clothing':   `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28 14 L20 26 L30 30 L30 66 L50 66 L50 30 L60 26 L52 14 L44 20 Q40 24 36 20 Z" fill="white" fill-opacity="0.4"/></svg>`,
+  'Food':       `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="38" r="22" fill="white" fill-opacity="0.3"/><path d="M28 38 Q34 28 40 38 Q46 48 52 38" stroke="white" stroke-width="3" fill="none" stroke-opacity="0.7"/><rect x="36" y="14" width="8" height="10" rx="4" fill="white" fill-opacity="0.5"/></svg>`,
+  'Sports':     `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="22" fill="white" fill-opacity="0.3"/><path d="M22 30 Q40 20 58 30" stroke="white" stroke-width="3" fill="none" stroke-opacity="0.6"/><path d="M18 42 Q40 52 62 42" stroke="white" stroke-width="3" fill="none" stroke-opacity="0.6"/><line x1="40" y1="18" x2="40" y2="62" stroke="white" stroke-width="2" stroke-opacity="0.4"/></svg>`,
+  'Books':      `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="14" width="30" height="52" rx="3" fill="white" fill-opacity="0.4"/><rect x="20" y="14" width="30" height="52" rx="3" fill="white" fill-opacity="0.3"/><rect x="24" y="14" width="30" height="52" rx="3" fill="white" fill-opacity="0.5"/><line x1="30" y1="28" x2="48" y2="28" stroke="white" stroke-width="2" stroke-opacity="0.6"/><line x1="30" y1="36" x2="48" y2="36" stroke="white" stroke-width="2" stroke-opacity="0.6"/><line x1="30" y1="44" x2="42" y2="44" stroke="white" stroke-width="2" stroke-opacity="0.6"/></svg>`,
+};
+const defaultIcon = `<svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="16" y="16" width="48" height="48" rx="8" fill="white" fill-opacity="0.4"/><circle cx="40" cy="36" r="10" fill="white" fill-opacity="0.5"/><path d="M20 64 Q40 48 60 64" fill="white" fill-opacity="0.3"/></svg>`;
+
+function fillProductImage(container, imageUrl, category) {
+    if (!container) return;
+    container.querySelectorAll('img, svg').forEach(el => el.remove());
+    const showSvg = () => {
+        container.classList.remove('has-photo');
+        container.querySelectorAll('img, svg').forEach(el => el.remove());
+        const div = document.createElement('div');
+        div.innerHTML = categoryIcons[category] || defaultIcon;
+        container.insertBefore(div.firstChild, container.firstChild);
+    };
+    if (imageUrl) {
+        container.classList.add('has-photo');
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = '';
+        img.onerror = showSvg;
+        container.insertBefore(img, container.firstChild);
+    } else {
+        showSvg();
+    }
+}
+
+document.querySelectorAll('.product-card').forEach(card => {
+    fillProductImage(
+        card.querySelector('.product-card-image'),
+        card.dataset.image,
+        card.dataset.category
+    );
+});
+
 function removeWish(id) {
     fetch('/wishlist/remove/' + id, { method: 'DELETE' })
-        .then(() => location.reload());
+        .then(async r => {
+            if (r.ok) {
+                showToast('Removed from wishlist', 'success');
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast('Failed to remove', 'error');
+            }
+        })
+        .catch(() => showToast('Failed to remove', 'error'));
+}
+
+function addToCart(productId) {
+    fetch('/cart/add?productId=' + productId + '&quantity=1', { method: 'POST' })
+        .then(r => r.ok ? showToast('Added to cart! 🛒', 'success') : showToast('Failed to add to cart', 'error'))
+        .catch(() => showToast('Failed to add to cart', 'error'));
+}
+
+function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'show ' + type;
+    setTimeout(() => t.className = '', 3000);
 }
 </script>
 </body>

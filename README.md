@@ -1,6 +1,6 @@
 # 🛒 ShopSmart E-Commerce (Spring Boot)
 
-A backend-focused e-commerce application built with Spring Boot 3, Spring Security, Spring Data JPA, Thymeleaf, and Flyway. Includes a Rust Axum analytics sidecar, full REST API, responsive frontend, and 51 passing tests.
+A backend-focused e-commerce application built with Spring Boot 3, Spring Security, Spring Data JPA, Thymeleaf, and Flyway. Includes a Rust Axum analytics sidecar, full REST API, responsive frontend, and 61 passing tests.
 
 ---
 
@@ -113,15 +113,19 @@ src/
 │   └── resources/
 │       ├── db/migration/      ← Flyway V1–V6
 │       ├── templates/         ← index, cart, orders, order-detail, login,
-│       │                         register, dashboard, wishlist
-│       ├── static/style.css
+│       │                         register, dashboard, wishlist, email/
+│       ├── static/
+│       │   ├── style.css              ← theme + Bedimcode-inspired navbar
+│       │   └── nav.js                 ← dropdown, hamburger, dark-mode bootstrap
 │       ├── application.properties
 │       ├── application-dev.properties   ← H2
 │       └── application-prod.properties  ← PostgreSQL
 ├── test/
 │   └── java/com/shopsmart/shopsmart/
 │       ├── ProductApiTests.java          ← 48 integration tests
-│       ├── UserServiceTest.java          ← 2 unit tests (Mockito)
+│       ├── CommerceApiTests.java         ← coupon, wishlist, image upload
+│       ├── EmailServiceTest.java         ← email unit tests
+│       ├── UserServiceTest.java          ← registration unit tests (Mockito)
 │       └── ShopsmartApplicationTests.java
 rust-service/                  ← Axum sidecar on :8081
 docs/
@@ -134,15 +138,16 @@ docs/
 
 ## 🚀 Features
 
-- **Products** — full CRUD, search, category filter, pagination, stats, low-stock alerts, bulk delete, random generator, image upload
-- **Cart** — per-user cart, add/update/remove items
-- **Orders** — checkout (with optional coupon), order history, admin status management
-- **Coupons** — percentage and flat discount codes
-- **Wishlist** — add/remove products per user
+- **Products** — full CRUD, search, category filter, pagination, stats, low-stock alerts, bulk delete, random generator, image upload (shown on product cards/modals)
+- **Cart** — per-user cart, add/update/remove items, coupon apply/preview before checkout
+- **Orders** — checkout (with optional coupon), order history, admin status management, HTML order-confirmation email
+- **Coupons** — percentage and flat discount codes (wired on cart page)
+- **Wishlist** — add/remove from product cards and wishlist page
 - **Auth** — form login + HTTP Basic, register, ADMIN/USER roles
 - **Admin dashboard** — Chart.js charts (donut + bar)
+- **Navbar** — Bedimcode-inspired hover links; unified control pills (links, theme, username, Logout); admin gear icon (`⚙️`) left of Logout opens dropdown (Dashboard, DB, Random, Delete All on home); hamburger under ~960px; shared `nav.js`
 - **Rust sidecar** — analytics summary, search proxy, low-stock proxy on `:8081`
-- **Dark mode** — toggle on frontend
+- **Dark mode** — toggle on all main pages; navbar controls share the same light/dark CSS tokens
 - **Sort + price filter** — on product catalog
 - **Docker** — full stack via `docker-compose`
 - **CI** — GitHub Actions (Java + Rust build)
@@ -210,11 +215,13 @@ Full reference → [docs/architecture/api-reference.md](docs/architecture/api-re
 
 ## 🧪 Tests
 
-**51 tests — all passing** (`mvnw.cmd test`)
+**61 tests — all passing** (`mvnw.cmd test`)
 
 | Suite | Count | Covers |
 |-------|-------|--------|
 | `ProductApiTests` | 48 | Products, security, cart, orders |
+| `CommerceApiTests` | 7 | Coupons, wishlist, image upload |
+| `EmailServiceTest` | 3 | HTML email / mail-disabled paths |
 | `UserServiceTest` | 2 | Registration unit tests |
 | `ShopsmartApplicationTests` | 1 | Context load |
 

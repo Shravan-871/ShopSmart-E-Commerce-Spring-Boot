@@ -7,7 +7,7 @@
 - Rust Axum sidecar: `rust-service/` on **:8081** (optional)
 - Main app: `mvnw.cmd spring-boot:run` → **http://localhost:8080**
 - Rust sidecar: `cd rust-service && cargo run` → http://localhost:8081
-- Tests: `mvnw.cmd test` → **51 tests**
+- Tests: `mvnw.cmd test` → **61 tests**
 - Coverage: `mvnw.cmd verify` → `target/site/jacoco/index.html`
 - Docker: `docker-compose up --build` → Spring + PostgreSQL + Rust
 
@@ -34,7 +34,8 @@
 | Repositories | `repository/` (8 JPA repos) |
 | Models | `model/` (Product, User, Cart, Order, Coupon, WishlistItem…) |
 | Config | `config/` (Security, CORS, RateLimit, WebConfig, OpenApi, DataInitializer) |
-| Templates | `resources/templates/` (index, cart, orders, login, register, dashboard, wishlist) |
+| Templates | `resources/templates/` (index, cart, orders, login, register, dashboard, wishlist, email/) |
+| Static UI | `resources/static/style.css`, `nav.js` (unified nav pills, ⚙️ admin dropdown, hamburger, dark mode) |
 | Migrations | `resources/db/migration/` V1–V6 |
 | Rust sidecar | `rust-service/` — proxies Spring via HTTP Basic |
 
@@ -60,15 +61,15 @@ docs/
 │   └── api-reference.md             ← full endpoint table for all controllers
 └── guides/
     ├── setup.md                     ← build, run, Docker, accounts, mail config
-    ├── running-tests.md             ← 51 tests, suites, JaCoCo, CI
+    ├── running-tests.md             ← 61 tests, suites, JaCoCo, CI
     ├── troubleshooting.md           ← port conflicts, H2, auth, Rust, Docker, Flyway
-    └── roadmap.md                  ← Phases 9–13 planned features, decision log
+    └── roadmap.md                  ← Phases 10–13 planned features, decision log
 ```
 
 ## Active Work
 
-Phase 9 (wire-up): images in UI → coupon on cart → wishlist button → HTML email → tests → README sync.
-See `docs/guides/roadmap.md` Phase 9 steps.
+Phase 10 (next): on-sale products → dashboard line chart → admin orders UI → product reviews.
+See `docs/guides/roadmap.md` Phase 10 steps.
 
 ## Conventions
 

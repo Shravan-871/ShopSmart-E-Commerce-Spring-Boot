@@ -6,7 +6,7 @@
 mvnw.cmd test
 ```
 
-51 tests — all passing.
+61 tests — all passing.
 
 ---
 
@@ -25,6 +25,8 @@ Coverage report → `target/site/jacoco/index.html`
 | Suite | File | Count | Covers |
 |-------|------|-------|--------|
 | `ProductApiTests` | `ProductApiTests.java` | 48 | Products, security, cart, orders |
+| `CommerceApiTests` | `CommerceApiTests.java` | 7 | Coupons, wishlist, image upload |
+| `EmailServiceTest` | `EmailServiceTest.java` | 3 | HTML email / mail-disabled paths |
 | `UserServiceTest` | `UserServiceTest.java` | 2 | Registration unit tests (Mockito) |
 | `ShopsmartApplicationTests` | `ShopsmartApplicationTests.java` | 1 | Spring context loads |
 
@@ -71,12 +73,25 @@ Coverage report → `target/site/jacoco/index.html`
 
 ---
 
-## Not Yet Tested (planned Phase 9.5)
+## CommerceApiTests (7)
 
-- Coupons validate + checkout with coupon
-- Wishlist add / remove / list
-- Image upload (valid and invalid type)
-- Email service (mocked `JavaMailSender`)
+| Test | Covers |
+|------|--------|
+| `validateCouponPercent` | SAVE10-style percent discount preview |
+| `validateCouponInvalid` | Unknown code → 400 |
+| `checkoutWithCoupon` | Checkout with `couponCode` applies flat discount |
+| `wishlistAddListRemove` | Add → list → remove |
+| `wishlistDuplicateAdd` | Duplicate add → 400 |
+| `uploadProductImage` | ADMIN multipart jpg upload sets `imageUrl` |
+| `uploadProductImageRejectsBadType` | Non-image content type → 400 |
+
+## EmailServiceTest (3)
+
+| Test | Covers |
+|------|--------|
+| `mailDisabledDoesNotSend` | No `JavaMailSender` interaction when mail off |
+| `mailEnabledSendsHtmlOrderConfirmation` | Thymeleaf HTML + MimeMessage send |
+| `lowStockThresholdIsTen` | Threshold constant used by checkout |
 
 ---
 

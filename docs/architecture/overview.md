@@ -87,7 +87,7 @@ Default seeded accounts (dev only):
 
 ---
 
-## What's Built (Phases 1–8)
+## What's Built (Phases 1–9)
 
 | Phase | Delivered |
 |-------|-----------|
@@ -99,18 +99,29 @@ Default seeded accounts (dev only):
 | 6 | Dark mode, sort, min/max price filter on home |
 | 7 | `UserServiceTest` (Mockito), JaCoCo on `mvn verify` |
 | 8 | `Dockerfile`, `docker-compose.yml`, Actuator, GitHub Actions CI |
+| 9 | Product images in UI + edit upload, cart coupon apply, wishlist heart, HTML order email + low-stock trigger, commerce/email tests |
+| 9+ | Navbar polish: icon admin dropdown, unified pills, mobile hamburger, light/dark nav tokens (`style.css` + `nav.js`) |
 
 ---
 
-## Known Gaps (Phase 9 targets)
+## UI / Navbar
 
-Backend exists; UI or tests still missing.
+| Piece | Location | Notes |
+|-------|----------|-------|
+| Styles | `static/style.css` | Shared `.nav-link` / `.nav-btn` / `.theme-toggle` / `.nav-username` / `.nav-dropdown-btn` height & border; `--nav-*` for light + dark |
+| Behavior | `static/nav.js` | Admin dropdown, hamburger drawer (&lt;960px), Escape/outside close, dark-mode bootstrap |
+| Templates | `index`, `cart`, `wishlist`, `orders`, `order-detail`, `dashboard` | Shared order: links → theme → username → admin gear → Logout |
 
-| Feature | Backend | Gap |
-|---------|---------|-----|
-| Product images | `POST /products/{id}/image`, `imageUrl` field | Cards/modals still SVG-only; no upload in edit modal |
-| Coupons | `POST /coupons/validate`, checkout `?couponCode=` | No coupon input on cart page |
-| Wishlist | REST API + `/wishlist-page` | No ❤️ button on product cards |
-| Email | `EmailService` on checkout | Plain log only; no HTML template; no low-stock trigger |
-| Dashboard | Donut + bar charts | No line chart (`created_at` missing on product) |
-| Rust stretch | MVP + landing page | No `cargo test`, no cache, no WebSocket |
+Admin tools are behind an icon-only **⚙️** control (left of Logout), not labeled “Admin” text. Home dropdown also includes Random / Delete All. Username is shown once (no separate ADMIN/USER badge).
+
+---
+
+## Known Gaps (Phase 10+)
+
+| Feature | Status |
+|---------|--------|
+| On-sale products / sale badge | Planned (Phase 10) |
+| Dashboard line chart (`created_at`) | Planned (Phase 10) |
+| Admin order management UI | Planned (Phase 10) |
+| Product reviews | Planned (Phase 10) |
+| Rust stretch (cargo test, Redis, WebSocket) | Planned (Phase 11) |
